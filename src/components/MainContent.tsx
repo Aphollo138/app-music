@@ -126,11 +126,11 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
         if (res.ok && data.lyrics) {
             setLyrics(data.lyrics);
         } else {
-            setLyrics('Letra não encontrada ou música instrumental.');
+            setLyrics('Letra indisponível para esta faixa. 🎵');
         }
     } catch (error) {
         console.error('Error fetching lyrics:', error);
-        setLyrics('Erro ao buscar a letra. Verifique sua conexão.');
+        setLyrics('Letra indisponível para esta faixa. 🎵');
     } finally {
         setIsLoadingLyrics(false);
     }
@@ -706,6 +706,17 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
                             <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-3">
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                                 <p>Buscando letra...</p>
+                            </div>
+                        ) : lyrics === 'Letra indisponível para esta faixa. 🎵' ? (
+                            <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-4">
+                                <Music size={48} className="opacity-20 mb-2" />
+                                <p className="text-lg font-medium">{lyrics}</p>
+                                <button 
+                                    onClick={() => setShowLyricsModal(false)}
+                                    className="mt-4 px-6 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm font-medium transition-colors"
+                                >
+                                    Fechar
+                                </button>
                             </div>
                         ) : (
                             <div className="text-lg leading-relaxed text-gray-300 font-medium whitespace-pre-wrap pb-20">

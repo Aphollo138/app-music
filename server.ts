@@ -89,6 +89,32 @@ const sanitizeFilename = (name: string) => {
   return name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 };
 
+// Helper to clean YouTube title for lyrics search
+const cleanTitle = (youtubeTitle: string) => {
+  // Remove common noise in parentheses and brackets
+  let clean = youtubeTitle.replace(/\[.*?\]|\(.*?\)/g, '');
+  
+  // Remove common terms like ft., feat., official video, etc. (case insensitive)
+  clean = clean.replace(/\b(ft\.|feat\.|official video|clipe oficial|lyric video|lyrics|audio)\b/gi, '');
+  
+  // Remove file extensions if present
+  clean = clean.replace(/\.mp3$/i, '');
+  
+  clean = clean.trim();
+
+  let artist = '';
+  let title = clean;
+
+  // Try to split by hyphen
+  if (clean.includes('-')) {
+    const parts = clean.split('-');
+    artist = parts[0].trim();
+    title = parts.slice(1).join('-').trim(); // Join back in case there are multiple hyphens
+  }
+
+  return { artist, title };
+};
+
 // API Routes
 
 // Convert YouTube to MP3 using Cobalt API
@@ -287,18 +313,23 @@ app.get('/api/lyrics', async (req, res) => {
         return res.status(400).json({ error: 'Title is required' });
     }
 
-    const artistName = typeof artist === 'string' ? artist : 'Unknown Artist';
     const apiKey = process.env.GENIUS_ACCESS_TOKEN;
 
-    // Clean up title for better search results (remove .mp3, parentheses, etc)
-    const cleanTitle = title.replace(/\.mp3$/i, '').replace(/\(.*\)/g, '').replace(/\[.*\]/g, '').trim();
+    // Clean up title for better search results
+    const cleaned = cleanTitle(title);
+    
+    // If the client provided an artist, we can use it, but if the title had a hyphen,
+    // our cleanTitle function might have extracted a better one from the YouTube title.
+    // We'll prefer the extracted artist if it exists, otherwise fallback to the query param.
+    const searchArtist = cleaned.artist || (typeof artist === 'string' && artist !== 'Unknown Artist' ? artist : '');
+    const searchTitle = cleaned.title;
 
-    console.log(`Fetching lyrics for: ${cleanTitle} by ${artistName}`);
+    console.log('Buscando letra para:', searchArtist, searchTitle);
 
     const options = {
         apiKey: apiKey || 'NO_KEY', // Library might fail or fallback if no key, but usually requires one for search
-        title: cleanTitle,
-        artist: artistName === 'Unknown Artist' ? '' : artistName,
+        title: searchTitle,
+        artist: searchArtist,
         optimizeQuery: true
     };
 
@@ -308,11 +339,13 @@ app.get('/api/lyrics', async (req, res) => {
         if (lyrics) {
             res.json({ lyrics });
         } else {
-            res.status(404).json({ error: 'Lyrics not found' });
+            res.status(404).json({ error: 'Letra não encontrada para esta versão' });
         }
     } catch (error: any) {
         console.error('Lyrics fetch error:', error);
-        res.status(500).json({ error: 'Failed to fetch lyrics', details: error.message });
+        // Em vez de travar ou retornar 500 para erros da API de letras, retornamos 404
+        // para que o front-end trate com elegância.
+        res.status(404).json({ error: 'Letra não encontrada para esta versão', details: error.message });
     }
 });
 
