@@ -108,102 +108,78 @@ app.post('/api/convert', async (req, res) => {
       console.log(`[SISTEMA] Diretório recriado antes do download: ${DOWNLOAD_DIR}`);
     }
 
-    // 1. Request conversion from Cobalt API with Fallback
-    const cobaltInstances = [
-      'https://api.cobalt.tools',
-      'https://cobalt-api.pepegapi.com',
-      'https://api.wuk.sh',
-      'https://co.eepy.today'
-    ];
-    let cobaltData = null;
-    let downloadUrl = null;
-    let lastError = null;
+    // 1. Request conversion from RapidAPI
+    const rapidApiHost = process.env.RAPIDAPI_HOST;
+    const rapidApiKey = process.env.RAPIDAPI_KEY;
 
-    for (const instance of cobaltInstances) {
-      try {
-        console.log(`[CONVERSÃO] Tentando instância Cobalt: ${instance}`);
-        const cobaltRes = await fetch(instance, {
-          method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Origin': 'https://meu-site-conversor.com'
-          },
-          body: JSON.stringify({
-            url: url,
-            downloadMode: 'audio',
-            audioFormat: 'mp3',
-            filenameStyle: 'basic'
-          })
-        });
-
-        if (!cobaltRes.ok) {
-          const errorText = await cobaltRes.text();
-          throw new Error(`Cobalt API error: ${cobaltRes.status} ${errorText}`);
-        }
-
-        const data = await cobaltRes.json();
-        
-        if (data.status === 'error') {
-          throw new Error(`Cobalt returned error: ${data.text}`);
-        }
-
-        if (data.url) {
-          cobaltData = data;
-          downloadUrl = data.url;
-          console.log(`[CONVERSÃO] Sucesso na instância ${instance}. Link: ${downloadUrl}`);
-          break; // Stop loop on success
-        } else {
-           throw new Error('No download URL returned from Cobalt');
-        }
-      } catch (err: any) {
-        console.warn(`[CONVERSÃO] Falha na instância ${instance}: ${err.message}`);
-        lastError = err;
-      }
+    if (!rapidApiHost || !rapidApiKey) {
+      throw new Error('As credenciais do RapidAPI (RAPIDAPI_HOST e RAPIDAPI_KEY) não estão configuradas nas variáveis de ambiente.');
     }
+
+    // Extrai o ID do vídeo (muitas APIs do RapidAPI preferem usar o ID em vez da URL completa)
+    const videoIdMatch = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11}).*/);
+    const videoId = videoIdMatch ? videoIdMatch[1] : '';
+
+    // ATENÇÃO: A URL abaixo é um exemplo genérico. 
+    // Você deve ajustá-la para o endpoint exato da API que escolheu no RapidAPI.
+    // Algumas APIs usam /dl?id=... outras usam /download?url=...
+    const apiUrl = `https://${rapidApiHost}/download?url=${encodeURIComponent(url)}`;
+
+    console.log(`[CONVERSÃO] Solicitando conversão via RapidAPI para: ${url}`);
+
+    const rapidRes = await fetch(apiUrl, {
+      method: 'GET', // Ajuste para POST se a sua API específica exigir
+      headers: {
+        'x-rapidapi-host': rapidApiHost,
+        'x-rapidapi-key': rapidApiKey,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!rapidRes.ok) {
+      const errorText = await rapidRes.text();
+      throw new Error(`RapidAPI error: ${rapidRes.status} ${errorText}`);
+    }
+
+    const data = await rapidRes.json();
+    
+    // ATENÇÃO: Ajuste a leitura do JSON de acordo com a resposta da sua API.
+    // Geralmente o link vem em propriedades como 'link', 'url', 'downloadUrl', ou dentro de um objeto 'data'.
+    const downloadUrl = data.link || data.url || data.downloadUrl || (data.data && data.data.url);
 
     if (!downloadUrl) {
-      throw new Error(`Todas as instâncias do Cobalt falharam. Último erro: ${lastError?.message}`);
+      console.error('[CONVERSÃO] Resposta do RapidAPI:', data);
+      throw new Error('Nenhuma URL de download retornada pelo RapidAPI. Verifique a estrutura da resposta no console.');
     }
 
-    // We don't have full metadata from Cobalt usually, so we'll try to extract from YouTube directly or use defaults
-    // Cobalt sometimes returns filename in the response or we can fetch the stream to get headers
-    
+    console.log(`[CONVERSÃO] Link de download obtido: ${downloadUrl}`);
+
+    // We don't have full metadata from RapidAPI usually, so we'll try to extract from YouTube directly or use defaults
+    // RapidAPI sometimes returns filename or title in the response
+    let title = data.title || 'Unknown Title';
+    const duration = data.duration || 0;
+    const thumbnail = data.thumbnail || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+    const artist = data.artist || data.channel || 'Unknown Artist';
+    const genre = data.genre || 'Unknown Genre';
+
     // 2. Download the MP3 file
     const audioRes = await fetch(downloadUrl);
     if (!audioRes.ok) {
-      throw new Error(`Failed to download audio from Cobalt link: ${audioRes.status}`);
+      throw new Error(`Failed to download audio from RapidAPI link: ${audioRes.status}`);
     }
 
-    // Try to get title from Content-Disposition header if available, otherwise use a generic name
-    let title = 'Unknown Title';
-    const contentDisposition = audioRes.headers.get('content-disposition');
-    if (contentDisposition) {
-      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-      if (filenameMatch && filenameMatch[1]) {
-        title = filenameMatch[1].replace(/\.mp3$/i, '');
-      }
-    } else {
-      // Fallback: extract video ID from URL
-      const videoIdMatch = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11}).*/);
-      if (videoIdMatch && videoIdMatch[1]) {
-        title = `YouTube Audio ${videoIdMatch[1]}`;
+    // Try to get title from Content-Disposition header if available and not provided by API
+    if (title === 'Unknown Title') {
+      const contentDisposition = audioRes.headers.get('content-disposition');
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (filenameMatch && filenameMatch[1]) {
+          title = filenameMatch[1].replace(/\.mp3$/i, '');
+        }
       } else {
-        title = `Audio_${Date.now()}`;
+        title = `YouTube Audio ${videoId || Date.now()}`;
       }
     }
-
-    // Decode URI component in case the title is URL encoded
-    try {
-      title = decodeURIComponent(title);
-    } catch(e) {}
-
-    const duration = 0; // Cobalt doesn't provide duration in the basic response
-    const thumbnail = `https://img.youtube.com/vi/${url.match(/(?:v=|\/)([0-9A-Za-z_-]{11}).*/)?.[1] || ''}/hqdefault.jpg`;
-    const artist = 'Unknown Artist';
-    const genre = 'Unknown Genre';
 
     console.log(`[CONVERSÃO] Metadados extraídos. Título: "${title}"`);
 
