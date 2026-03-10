@@ -153,7 +153,7 @@ export default function Player({ currentSong, isPlaying, onPlayPause, onNext, on
               
               <div className="mt-12 text-center w-full px-8">
                 <h2 className="text-2xl font-bold text-white mb-2 line-clamp-1">{currentSong.title}</h2>
-                <p className="text-purple-400 font-medium">NeonWaves</p>
+                <p className="text-purple-400 font-medium">App Player</p>
               </div>
             </div>
 

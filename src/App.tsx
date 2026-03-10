@@ -35,7 +35,7 @@ export default function App() {
     }
   };
 
-  const BACKEND_URL = 'https://app-music-1.onrender.com';
+  const BACKEND_URL = ''; // Use relative path to hit the local server
 
   const checkCachedSongs = async () => {
     try {
@@ -194,6 +194,35 @@ export default function App() {
     }
   };
 
+  const handleEditPlaylist = async (id: string, name: string) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/playlists/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) fetchPlaylists();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleDeletePlaylist = async (id: string) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/playlists/${id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        fetchPlaylists();
+        if (activeView === `playlist:${id}`) {
+          setActiveView('home');
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const handleAddToPlaylist = async (playlistId: string, songId: string) => {
     try {
         const res = await fetch(`${BACKEND_URL}/api/playlists/${playlistId}/songs`, {
@@ -323,6 +352,8 @@ export default function App() {
           onPlay={handlePlay}
           onAddToPlaylist={handleAddToPlaylist}
           onCreatePlaylist={handleCreatePlaylist}
+          onEditPlaylist={handleEditPlaylist}
+          onDeletePlaylist={handleDeletePlaylist}
           onDeleteSong={handleDeleteSong}
           onEditSong={handleEditSong}
           onOpenPlaylist={handleOpenPlaylist}

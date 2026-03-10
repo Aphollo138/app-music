@@ -295,10 +295,50 @@ app.get('/api/playlists', (req, res) => {
 
 app.post('/api/playlists', (req, res) => {
     const { name } = req.body;
+    if (!name) {
+        return res.status(400).json({ error: 'Name is required' });
+    }
     const id = uuidv4();
-    const stmt = db.prepare('INSERT INTO playlists (id, name) VALUES (?, ?)');
-    stmt.run(id, name);
-    res.json({ id, name });
+    try {
+        const stmt = db.prepare('INSERT INTO playlists (id, name) VALUES (?, ?)');
+        stmt.run(id, name);
+        res.json({ id, name });
+    } catch (e: any) {
+        console.error('Create playlist error:', e);
+        res.status(500).json({ error: 'Failed to create playlist', details: e.message });
+    }
+});
+
+app.put('/api/playlists/:id', (req, res) => {
+    const { id } = req.params;
+    const { name } = req.body;
+    try {
+        const stmt = db.prepare('UPDATE playlists SET name = ? WHERE id = ?');
+        const info = stmt.run(name, id);
+        if (info.changes > 0) {
+            res.json({ success: true });
+        } else {
+            res.status(404).json({ error: 'Playlist not found' });
+        }
+    } catch (e: any) {
+        console.error('Update playlist error:', e);
+        res.status(500).json({ error: 'Failed to update playlist', details: e.message });
+    }
+});
+
+app.delete('/api/playlists/:id', (req, res) => {
+    const { id } = req.params;
+    try {
+        const deleteTransaction = db.transaction((playlistId) => {
+            db.prepare('DELETE FROM playlist_songs WHERE playlist_id = ?').run(playlistId);
+            db.prepare('DELETE FROM playlists WHERE id = ?').run(playlistId);
+        });
+        deleteTransaction(id);
+        res.json({ success: true });
+    } catch (e: any) {
+        console.error('Delete playlist error:', e);
+        res.status(500).json({ error: 'Failed to delete playlist', details: e.message });
+    }
 });
 
 app.post('/api/playlists/:id/songs', (req, res) => {

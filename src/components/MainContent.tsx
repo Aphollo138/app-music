@@ -24,6 +24,8 @@ interface MainContentProps {
   onPlay: (song: Song) => void;
   onAddToPlaylist: (playlistId: string, songId: string) => Promise<void>;
   onCreatePlaylist: (name: string) => Promise<void>;
+  onEditPlaylist: (id: string, name: string) => Promise<void>;
+  onDeletePlaylist: (id: string) => Promise<void>;
   onDeleteSong: (songId: string) => Promise<void>;
   onEditSong: (songId: string, newTitle: string, newArtist: string) => Promise<void>;
   onOpenPlaylist: (playlistId: string) => void;
@@ -33,7 +35,7 @@ interface MainContentProps {
   cachedSongIds: string[];
 }
 
-export default function MainContent({ songs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onDeleteSong, onEditSong, onOpenPlaylist, onBack, isConverting, activeView, cachedSongIds }: MainContentProps) {
+export default function MainContent({ songs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onEditPlaylist, onDeletePlaylist, onDeleteSong, onEditSong, onOpenPlaylist, onBack, isConverting, activeView, cachedSongIds }: MainContentProps) {
   const [url, setUrl] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'musics' | 'playlists' | 'artists' | 'genres'>('musics');
@@ -112,7 +114,7 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
             artist: selectedSong.artist || ''
         });
         
-        const BACKEND_URL = 'https://app-music-1.onrender.com';
+        const BACKEND_URL = '';
         const res = await fetch(`${BACKEND_URL}/api/lyrics?${params}`);
         const data = await res.json();
         
@@ -195,7 +197,7 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
             </div>
         ) : (
             <h1 className="text-2xl font-bold text-white">
-                Lark Player
+                App Player
             </h1>
         )}
         
@@ -375,15 +377,42 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
                     {playlists.map(playlist => (
                         <div 
                             key={playlist.id} 
-                            className="flex items-center gap-4 p-2 cursor-pointer active:bg-white/5 rounded-xl"
+                            className="flex items-center gap-4 p-2 cursor-pointer active:bg-white/5 rounded-xl group"
                             onClick={() => onOpenPlaylist(playlist.id)}
                         >
                             <div className="w-16 h-16 bg-[#2a2a2a] rounded-xl flex items-center justify-center text-gray-400">
                                 <ListMusic size={32} />
                             </div>
-                            <div>
+                            <div className="flex-1">
                                 <span className="text-white font-medium block">{playlist.name}</span>
                                 <span className="text-xs text-gray-500">Playlist</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const newName = prompt('Novo nome da playlist:', playlist.name);
+                                        if (newName !== null && newName.trim() !== '') {
+                                            onEditPlaylist(playlist.id, newName);
+                                        }
+                                    }}
+                                    className="w-8 h-8 flex items-center justify-center bg-white/10 text-gray-300 hover:text-white rounded-full hover:bg-blue-500/50 transition-colors"
+                                    title="Editar"
+                                >
+                                    <Pencil size={14} />
+                                </button>
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (confirm(`Tem certeza que deseja excluir a playlist "${playlist.name}"?`)) {
+                                            onDeletePlaylist(playlist.id);
+                                        }
+                                    }}
+                                    className="w-8 h-8 flex items-center justify-center bg-white/10 text-gray-300 hover:text-white rounded-full hover:bg-red-500/50 transition-colors"
+                                    title="Excluir"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
                             </div>
                         </div>
                     ))}
