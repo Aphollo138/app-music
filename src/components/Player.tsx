@@ -26,10 +26,13 @@ export default function Player({ currentSong, isPlaying, onPlayPause, onNext, on
   useEffect(() => {
     const loadAudio = async () => {
       if (currentSong && audioRef.current) {
+        const RENDER_URL = 'https://app-music-1.onrender.com';
+        const songUrl = `${RENDER_URL}/downloads/${currentSong.filename}`;
+        
         try {
           // Check if song is in cache
           const cache = await caches.open('musicas-cache');
-          const response = await cache.match(`/downloads/${currentSong.filename}`);
+          const response = await cache.match(songUrl);
           
           if (response) {
             // Play from cache
@@ -39,7 +42,7 @@ export default function Player({ currentSong, isPlaying, onPlayPause, onNext, on
             console.log('Playing from cache:', currentSong.title);
           } else {
             // Play from server
-            audioRef.current.src = `/downloads/${currentSong.filename}`;
+            audioRef.current.src = songUrl;
             console.log('Playing from server:', currentSong.title);
           }
 
@@ -50,7 +53,7 @@ export default function Player({ currentSong, isPlaying, onPlayPause, onNext, on
           console.error("Error loading audio:", error);
           // Fallback to server
           if (audioRef.current) {
-            audioRef.current.src = `/downloads/${currentSong.filename}`;
+            audioRef.current.src = songUrl;
             if (isPlaying) audioRef.current.play().catch(e => console.error("Play error:", e));
           }
         }

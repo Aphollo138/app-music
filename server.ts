@@ -99,6 +99,12 @@ app.post('/api/convert', async (req, res) => {
   try {
     console.log(`[CONVERSÃO] Iniciando extração de metadados para: ${url}`);
     
+    // Garante que a pasta downloads existe antes de cada conversão (útil para o disco efêmero do Render)
+    if (!fs.existsSync(DOWNLOAD_DIR)) {
+      fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
+      console.log(`[SISTEMA] Diretório recriado antes do download: ${DOWNLOAD_DIR}`);
+    }
+
     // Get metadata first
     const rawMeta = await ytDlpExec(url, {
       dumpJson: true,
@@ -135,7 +141,7 @@ app.post('/api/convert', async (req, res) => {
         audioFormat: 'mp3',
         output: outputTemplate,
         noWarnings: true,
-        ffmpegLocation: ffmpegPath
+        ffmpegLocation: ffmpegPath || '/usr/bin/ffmpeg' // Usa o binário do ffmpeg-static dinamicamente
     });
 
     console.log(`[CONVERSÃO] Áudio extraído e salvo com sucesso em: ${outputTemplate}`);

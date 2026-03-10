@@ -34,15 +34,17 @@ export default function App() {
     }
   };
 
+  const RENDER_URL = 'https://app-music-1.onrender.com';
+
   const checkCachedSongs = async () => {
     try {
       const cache = await caches.open('musicas-cache');
       const keys = await cache.keys();
-      const cachedUrls = keys.map(req => new URL(req.url).pathname);
+      const cachedUrls = keys.map(req => req.url);
       
       setSongs(currentSongs => {
         const cachedIds = currentSongs.filter(song => 
-          cachedUrls.includes(`/downloads/${song.filename}`)
+          cachedUrls.includes(`${RENDER_URL}/downloads/${song.filename}`)
         ).map(s => s.id);
         setCachedSongIds(cachedIds);
         return currentSongs;
@@ -89,7 +91,7 @@ export default function App() {
   const cacheAudioFile = async (song: Song) => {
     try {
       const cache = await caches.open('musicas-cache');
-      const url = `/downloads/${song.filename}`;
+      const url = `${RENDER_URL}/downloads/${song.filename}`;
       
       // Fetch the file and put it in cache
       const response = await fetch(url);
@@ -204,7 +206,7 @@ export default function App() {
         // Delete from cache
         if (songToDelete) {
           const cache = await caches.open('musicas-cache');
-          await cache.delete(`/downloads/${songToDelete.filename}`);
+          await cache.delete(`${RENDER_URL}/downloads/${songToDelete.filename}`);
           checkCachedSongs();
         }
       }
