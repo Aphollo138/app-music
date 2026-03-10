@@ -119,7 +119,8 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
             artist: selectedSong.artist || ''
         });
         
-        const res = await fetch(`/api/lyrics?${params}`);
+        const BACKEND_URL = 'https://app-music-1.onrender.com';
+        const res = await fetch(`${BACKEND_URL}/api/lyrics?${params}`);
         const data = await res.json();
         
         if (res.ok && data.lyrics) {
@@ -187,7 +188,7 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
   };
 
   return (
-    <div className="flex-1 bg-black overflow-y-auto pb-32 h-screen flex flex-col">
+    <div className="flex-1 bg-black overflow-y-auto pb-24 h-screen flex flex-col">
       {/* Header */}
       <div className="flex justify-between items-center px-4 pt-6 pb-2 bg-black z-20">
         {isPlaylistView ? (

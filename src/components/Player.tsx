@@ -27,8 +27,8 @@ export default function Player({ currentSong, isPlaying, onPlayPause, onNext, on
   useEffect(() => {
     const loadAudio = async () => {
       if (currentSong && audioRef.current) {
-        const RENDER_URL = 'https://app-music-1.onrender.com';
-        const serverSongUrl = `${RENDER_URL}/downloads/${currentSong.filename}`;
+        const BACKEND_URL = 'https://app-music-1.onrender.com';
+        const serverSongUrl = `${BACKEND_URL}/downloads/${currentSong.filename}`;
         const fallbackUrl = currentSong.downloadUrl || serverSongUrl;
         
         try {
@@ -127,7 +127,7 @@ export default function Player({ currentSong, isPlaying, onPlayPause, onNext, on
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-0 bg-gradient-to-b from-[#0f0f1a] to-[#000000] z-50 flex flex-col p-6"
+            className="absolute inset-0 bg-gradient-to-b from-[#0f0f1a] to-[#000000] z-50 flex flex-col p-6"
           >
             <div className="flex justify-between items-center mb-8 pt-8">
               <button onClick={() => setIsExpanded(false)} className="text-white/70 hover:text-white p-2">
@@ -191,7 +191,7 @@ export default function Player({ currentSong, isPlaying, onPlayPause, onNext, on
           <motion.div
             initial={{ y: 100 }}
             animate={{ y: 0 }}
-            className="fixed bottom-0 left-0 right-0 h-20 bg-[#181820]/95 backdrop-blur-xl border-t border-white/5 px-4 flex items-center justify-between z-40 cursor-pointer shadow-2xl"
+            className="absolute bottom-0 left-0 right-0 h-auto min-h-[5rem] bg-[#181820]/95 backdrop-blur-xl border-t border-white/5 px-4 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex items-center justify-between z-40 cursor-pointer shadow-2xl"
             onClick={() => setIsExpanded(true)}
           >
             <div className="flex items-center space-x-3 overflow-hidden flex-1">
