@@ -7,7 +7,6 @@ import { fileURLToPath } from 'url';
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import cors from 'cors';
-import { getLyrics } from 'genius-lyrics-api';
 import { pipeline } from 'stream/promises';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -313,8 +312,6 @@ app.get('/api/lyrics', async (req, res) => {
         return res.status(400).json({ error: 'Title is required' });
     }
 
-    const apiKey = process.env.GENIUS_ACCESS_TOKEN;
-
     // Clean up title for better search results
     const cleaned = cleanTitle(title);
     
@@ -326,26 +323,30 @@ app.get('/api/lyrics', async (req, res) => {
 
     console.log('Buscando letra para:', searchArtist, searchTitle);
 
-    const options = {
-        apiKey: apiKey || 'NO_KEY', // Library might fail or fallback if no key, but usually requires one for search
-        title: searchTitle,
-        artist: searchArtist,
-        optimizeQuery: true
-    };
-
     try {
-        const lyrics = await getLyrics(options);
-        
-        if (lyrics) {
-            res.json({ lyrics });
+        const url = `https://lrclib.net/api/search?track_name=${encodeURIComponent(searchTitle)}&artist_name=${encodeURIComponent(searchArtist)}`;
+        const response = await fetch(url, {
+            headers: {
+                "User-Agent": "NeonWavesApp/1.0 (rafinhasimplicio03@gmail.com)"
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`LRCLIB API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (Array.isArray(data) && data.length > 0 && data[0].plainLyrics) {
+            res.json({ lyrics: data[0].plainLyrics });
         } else {
-            res.status(404).json({ error: 'Letra não encontrada para esta versão' });
+            res.status(404).json({ error: 'Letra não encontrada' });
         }
     } catch (error: any) {
         console.error('Lyrics fetch error:', error);
         // Em vez de travar ou retornar 500 para erros da API de letras, retornamos 404
         // para que o front-end trate com elegância.
-        res.status(404).json({ error: 'Letra não encontrada para esta versão', details: error.message });
+        res.status(404).json({ error: 'Letra não encontrada', details: error.message });
     }
 });
 
