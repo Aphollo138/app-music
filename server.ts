@@ -115,7 +115,7 @@ app.post('/api/convert', async (req, res) => {
     const rawMeta = await ytDlpExec(url, {
       dumpJson: true,
       noWarnings: true,
-      cookies: path.join(__dirname, 'cookies.txt')
+      extractorArgs: 'youtube:player_client=android,ios'
     });
     
     // Handle potential string output from exec
@@ -149,7 +149,7 @@ app.post('/api/convert', async (req, res) => {
         output: outputTemplate,
         noWarnings: true,
         ffmpegLocation: ffmpegPath || '/usr/bin/ffmpeg', // Usa o binário do ffmpeg-static dinamicamente
-        cookies: path.join(__dirname, 'cookies.txt')
+        extractorArgs: 'youtube:player_client=android,ios'
     });
 
     console.log(`[CONVERSÃO] Áudio extraído e salvo com sucesso em: ${outputTemplate}`);

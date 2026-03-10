@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build",
+    "prestart": "npm install yt-dlp-exec@latest",
     "start": "tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
