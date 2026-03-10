@@ -120,15 +120,17 @@ app.post('/api/convert', async (req, res) => {
     const videoIdMatch = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11}).*/);
     const videoId = videoIdMatch ? videoIdMatch[1] : '';
 
-    // ATENÇÃO: A URL abaixo é um exemplo genérico. 
-    // Você deve ajustá-la para o endpoint exato da API que escolheu no RapidAPI.
-    // Algumas APIs usam /dl?id=... outras usam /download?url=...
-    const apiUrl = `https://${rapidApiHost}/download?url=${encodeURIComponent(url)}`;
+    if (!videoId) {
+        throw new Error('Não foi possível extrair o ID do vídeo da URL fornecida.');
+    }
 
-    console.log(`[CONVERSÃO] Solicitando conversão via RapidAPI para: ${url}`);
+    // Usando a URL específica fornecida
+    const apiUrl = `https://${rapidApiHost}/dl?id=${videoId}`;
+
+    console.log(`[CONVERSÃO] Solicitando conversão via RapidAPI para o ID: ${videoId}`);
 
     const rapidRes = await fetch(apiUrl, {
-      method: 'GET', // Ajuste para POST se a sua API específica exigir
+      method: 'GET',
       headers: {
         'x-rapidapi-host': rapidApiHost,
         'x-rapidapi-key': rapidApiKey,
@@ -143,9 +145,8 @@ app.post('/api/convert', async (req, res) => {
 
     const data = await rapidRes.json();
     
-    // ATENÇÃO: Ajuste a leitura do JSON de acordo com a resposta da sua API.
-    // Geralmente o link vem em propriedades como 'link', 'url', 'downloadUrl', ou dentro de um objeto 'data'.
-    const downloadUrl = data.link || data.url || data.downloadUrl || (data.data && data.data.url);
+    // A API youtube-mp36 retorna o link na propriedade 'link'
+    const downloadUrl = data.link;
 
     if (!downloadUrl) {
       console.error('[CONVERSÃO] Resposta do RapidAPI:', data);
