@@ -20,13 +20,18 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+app.use(cors({ origin: '*' }));
 app.use(express.json());
-app.use(cors());
 
 // Debug logging middleware
 app.use((req, res, next) => {
     console.log(`[${req.method}] ${req.url}`);
     next();
+});
+
+// Health check route
+app.get('/', (req, res) => {
+    res.send('Server is running');
 });
 
 // Ensure downloads directory exists in public folder
@@ -91,6 +96,7 @@ const sanitizeFilename = (name: string) => {
 
 // Convert YouTube to MP3
 app.post('/api/convert', async (req, res) => {
+  console.log('Recebi um pedido de conversão para:', req.body.url);
   const { url } = req.body;
   if (!url) {
     return res.status(400).json({ error: 'Invalid YouTube URL' });

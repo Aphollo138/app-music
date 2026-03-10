@@ -68,7 +68,7 @@ export default function App() {
 
   const fetchPlaylists = async () => {
     try {
-      const res = await fetch('/api/playlists');
+      const res = await fetch(`${RENDER_URL}/api/playlists`);
       const data = await res.json();
       setPlaylists(data);
     } catch (error) {
@@ -107,22 +107,27 @@ export default function App() {
   const handleConvert = async (url: string) => {
     setIsConverting(true);
     try {
-      const res = await fetch('/api/convert', {
+      const convertUrl = `${RENDER_URL}/api/convert`;
+      console.log('Enviando para:', convertUrl);
+      
+      const res = await fetch(convertUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
       });
       
-      if (!res.ok) throw new Error('Conversion failed');
+      if (!res.ok) throw new Error(`Conversion failed with status: ${res.status}`);
       
       const data = await res.json();
       if (data.success) {
         salvarNaPlaylist(data.song);
         await cacheAudioFile(data.song);
+      } else {
+        throw new Error(data.error || 'Unknown error from server');
       }
-    } catch (error) {
-      console.error(error);
-      alert('Failed to convert video. Please check the URL.');
+    } catch (error: any) {
+      console.error('Erro no fetch:', error);
+      alert(`Failed to convert video. Error: ${error.message || error}`);
     } finally {
       setIsConverting(false);
     }
@@ -155,7 +160,7 @@ export default function App() {
 
   const handleCreatePlaylist = async (name: string) => {
     try {
-      const res = await fetch('/api/playlists', {
+      const res = await fetch(`${RENDER_URL}/api/playlists`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
@@ -168,7 +173,7 @@ export default function App() {
 
   const handleAddToPlaylist = async (playlistId: string, songId: string) => {
     try {
-        const res = await fetch(`/api/playlists/${playlistId}/songs`, {
+        const res = await fetch(`${RENDER_URL}/api/playlists/${playlistId}/songs`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ songId }),
@@ -212,7 +217,7 @@ export default function App() {
       }
 
       // Optionally delete from server if it still exists
-      fetch(`/api/songs/${songId}`, { method: 'DELETE' }).catch(e => console.error(e));
+      fetch(`${RENDER_URL}/api/songs/${songId}`, { method: 'DELETE' }).catch(e => console.error(e));
 
       if (currentSong?.id === songId) {
         setCurrentSong(null);
@@ -246,7 +251,7 @@ export default function App() {
   useEffect(() => {
     if (activeView.startsWith('playlist:')) {
         const playlistId = activeView.split(':')[1];
-        fetch(`/api/playlists/${playlistId}/songs`)
+        fetch(`${RENDER_URL}/api/playlists/${playlistId}/songs`)
             .then(res => res.json())
             .then(data => setDisplaySongs(data))
             .catch(e => console.error(e));
