@@ -7,11 +7,8 @@ import { fileURLToPath } from 'url';
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import cors from 'cors';
-// @ts-ignore
-import ytDlpExec from 'yt-dlp-exec';
-// @ts-ignore
-import ffmpegPath from 'ffmpeg-static';
 import { getLyrics } from 'genius-lyrics-api';
+import { pipeline } from 'stream/promises';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const db = new Database('songs.db');
@@ -94,7 +91,7 @@ const sanitizeFilename = (name: string) => {
 
 // API Routes
 
-// Convert YouTube to MP3
+// Convert YouTube to MP3 using Cobalt API
 app.post('/api/convert', async (req, res) => {
   console.log('Recebi um pedido de conversão para:', req.body.url);
   const { url } = req.body;
@@ -103,7 +100,7 @@ app.post('/api/convert', async (req, res) => {
   }
 
   try {
-    console.log(`[CONVERSÃO] Iniciando extração de metadados para: ${url}`);
+    console.log(`[CONVERSÃO] Solicitando conversão via Cobalt API para: ${url}`);
     
     // Garante que a pasta downloads existe antes de cada conversão (útil para o disco efêmero do Render)
     if (!fs.existsSync(DOWNLOAD_DIR)) {
@@ -111,48 +108,93 @@ app.post('/api/convert', async (req, res) => {
       console.log(`[SISTEMA] Diretório recriado antes do download: ${DOWNLOAD_DIR}`);
     }
 
-    // Get metadata first
-    const rawMeta = await ytDlpExec(url, {
-      dumpJson: true,
-      noWarnings: true,
-      extractorArgs: 'youtube:player_client=android,ios'
+    // 1. Request conversion from Cobalt API
+    const cobaltRes = await fetch('https://api.cobalt.tools/api/json', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': 'NeonWaves/1.0'
+      },
+      body: JSON.stringify({
+        url: url,
+        isAudioOnly: true,
+        aFormat: 'mp3'
+      })
     });
+
+    if (!cobaltRes.ok) {
+      const errorText = await cobaltRes.text();
+      throw new Error(`Cobalt API error: ${cobaltRes.status} ${errorText}`);
+    }
+
+    const cobaltData = await cobaltRes.json();
     
-    // Handle potential string output from exec
-    // yt-dlp-exec might return an object directly if dumpJson is true, or stdout string
-    const info = (rawMeta as any).stdout ? JSON.parse((rawMeta as any).stdout) : rawMeta;
+    if (cobaltData.status === 'error') {
+      throw new Error(`Cobalt returned error: ${cobaltData.text}`);
+    }
 
-    const title = info.title;
-    const duration = info.duration;
-    const thumbnail = info.thumbnail;
-    // Try to get artist from metadata, fallback to uploader or channel
-    const artist = info.artist || info.uploader || info.channel || 'Unknown Artist';
-    // Try to get genre, fallback to categories or Unknown
-    const genre = info.genre || (info.categories && info.categories.length > 0 ? info.categories[0] : 'Unknown Genre');
+    const downloadUrl = cobaltData.url;
+    if (!downloadUrl) {
+      throw new Error('No download URL returned from Cobalt');
+    }
 
-    console.log(`[CONVERSÃO] Metadados obtidos com sucesso. Título: "${title}"`);
+    console.log(`[CONVERSÃO] Link de download obtido: ${downloadUrl}`);
+
+    // We don't have full metadata from Cobalt usually, so we'll try to extract from YouTube directly or use defaults
+    // Cobalt sometimes returns filename in the response or we can fetch the stream to get headers
+    
+    // 2. Download the MP3 file
+    const audioRes = await fetch(downloadUrl);
+    if (!audioRes.ok) {
+      throw new Error(`Failed to download audio from Cobalt link: ${audioRes.status}`);
+    }
+
+    // Try to get title from Content-Disposition header if available, otherwise use a generic name
+    let title = 'Unknown Title';
+    const contentDisposition = audioRes.headers.get('content-disposition');
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+      if (filenameMatch && filenameMatch[1]) {
+        title = filenameMatch[1].replace(/\.mp3$/i, '');
+      }
+    } else {
+      // Fallback: extract video ID from URL
+      const videoIdMatch = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11}).*/);
+      if (videoIdMatch && videoIdMatch[1]) {
+        title = `YouTube Audio ${videoIdMatch[1]}`;
+      } else {
+        title = `Audio_${Date.now()}`;
+      }
+    }
+
+    // Decode URI component in case the title is URL encoded
+    try {
+      title = decodeURIComponent(title);
+    } catch(e) {}
+
+    const duration = 0; // Cobalt doesn't provide duration in the basic response
+    const thumbnail = `https://img.youtube.com/vi/${url.match(/(?:v=|\/)([0-9A-Za-z_-]{11}).*/)?.[1] || ''}/hqdefault.jpg`;
+    const artist = 'Unknown Artist';
+    const genre = 'Unknown Genre';
+
+    console.log(`[CONVERSÃO] Metadados extraídos. Título: "${title}"`);
 
     const id = uuidv4();
     
     // Sanitize title for filename
     const cleanTitle = sanitizeFilename(title);
-    const filename = `${cleanTitle}.mp3`;
-    // Use absolute path for output template to ensure it goes to the right place
-    const outputTemplate = path.join(DOWNLOAD_DIR, `${cleanTitle}.%(ext)s`);
+    const filename = `${cleanTitle}_${id.substring(0, 8)}.mp3`;
+    const outputTemplate = path.join(DOWNLOAD_DIR, filename);
 
-    console.log(`[CONVERSÃO] Iniciando download e extração de áudio para: "${title}"`);
+    console.log(`[CONVERSÃO] Iniciando salvamento do arquivo para: "${outputTemplate}"`);
 
-    // Download command
-    await ytDlpExec(url, {
-        extractAudio: true,
-        audioFormat: 'mp3',
-        output: outputTemplate,
-        noWarnings: true,
-        ffmpegLocation: ffmpegPath || '/usr/bin/ffmpeg', // Usa o binário do ffmpeg-static dinamicamente
-        extractorArgs: 'youtube:player_client=android,ios'
-    });
+    // Save the stream to file
+    const fileStream = fs.createWriteStream(outputTemplate);
+    // @ts-ignore
+    await pipeline(audioRes.body, fileStream);
 
-    console.log(`[CONVERSÃO] Áudio extraído e salvo com sucesso em: ${outputTemplate}`);
+    console.log(`[CONVERSÃO] Áudio salvo com sucesso em: ${outputTemplate}`);
     
     const stmt = db.prepare('INSERT INTO songs (id, title, filename, duration, thumbnail, artist, genre) VALUES (?, ?, ?, ?, ?, ?, ?)');
     stmt.run(id, title, filename, duration, thumbnail, artist, genre);

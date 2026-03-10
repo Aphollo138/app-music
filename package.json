@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build",
-    "prestart": "npm install yt-dlp-exec@latest",
     "start": "tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
@@ -29,8 +28,6 @@
     "react-dom": "^19.0.0",
     "uuid": "^13.0.0",
     "vite": "^6.2.0",
-    "yt-dlp-exec": "*",
-    "ffmpeg-static": "^5.2.0",
     "genius-lyrics-api": "^3.0.0"
   },
   "devDependencies": {
