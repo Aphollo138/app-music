@@ -14,7 +14,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const db = new Database('songs.db');
 db.pragma('foreign_keys = ON'); // Enable foreign keys
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 // Middleware
 app.use(cors({ origin: '*' }));
@@ -163,23 +163,8 @@ app.post('/api/convert', async (req, res) => {
     const artist = data.artist || data.channel || 'Unknown Artist';
     const genre = data.genre || 'Unknown Genre';
 
-    // 2. Download the MP3 file
-    const audioRes = await fetch(downloadUrl);
-    if (!audioRes.ok) {
-      throw new Error(`Failed to download audio from RapidAPI link: ${audioRes.status}`);
-    }
-
-    // Try to get title from Content-Disposition header if available and not provided by API
     if (title === 'Unknown Title') {
-      const contentDisposition = audioRes.headers.get('content-disposition');
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-        if (filenameMatch && filenameMatch[1]) {
-          title = filenameMatch[1].replace(/\.mp3$/i, '');
-        }
-      } else {
-        title = `YouTube Audio ${videoId || Date.now()}`;
-      }
+      title = `YouTube Audio ${videoId || Date.now()}`;
     }
 
     console.log(`[CONVERSÃO] Metadados extraídos. Título: "${title}"`);
@@ -189,23 +174,15 @@ app.post('/api/convert', async (req, res) => {
     // Sanitize title for filename
     const cleanTitle = sanitizeFilename(title);
     const filename = `${cleanTitle}_${id.substring(0, 8)}.mp3`;
-    const outputTemplate = path.join(DOWNLOAD_DIR, filename);
 
-    console.log(`[CONVERSÃO] Iniciando salvamento do arquivo para: "${outputTemplate}"`);
-
-    // Save the stream to file
-    const fileStream = fs.createWriteStream(outputTemplate);
-    // @ts-ignore
-    await pipeline(audioRes.body, fileStream);
-
-    console.log(`[CONVERSÃO] Áudio salvo com sucesso em: ${outputTemplate}`);
-    
+    // Não baixamos mais o arquivo no servidor. 
+    // Apenas salvamos os metadados no banco e enviamos o link direto para o front-end baixar.
     const stmt = db.prepare('INSERT INTO songs (id, title, filename, duration, thumbnail, artist, genre) VALUES (?, ?, ?, ?, ?, ?, ?)');
     stmt.run(id, title, filename, duration, thumbnail, artist, genre);
 
     console.log(`[CONVERSÃO] Música salva no banco de dados. Processo concluído para: "${title}"`);
 
-    res.json({ success: true, song: { id, title, filename, duration, thumbnail, artist, genre } });
+    res.json({ success: true, song: { id, title, filename, duration, thumbnail, artist, genre, downloadUrl } });
 
   } catch (error: any) {
     console.error('[CONVERSÃO] Erro durante o processo:', error);

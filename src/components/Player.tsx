@@ -8,6 +8,7 @@ interface Song {
   filename: string;
   duration: number;
   thumbnail: string;
+  downloadUrl?: string;
 }
 
 interface PlayerProps {
@@ -27,12 +28,13 @@ export default function Player({ currentSong, isPlaying, onPlayPause, onNext, on
     const loadAudio = async () => {
       if (currentSong && audioRef.current) {
         const RENDER_URL = 'https://app-music-1.onrender.com';
-        const songUrl = `${RENDER_URL}/downloads/${currentSong.filename}`;
+        const serverSongUrl = `${RENDER_URL}/downloads/${currentSong.filename}`;
+        const fallbackUrl = currentSong.downloadUrl || serverSongUrl;
         
         try {
           // Check if song is in cache
           const cache = await caches.open('musicas-cache');
-          const response = await cache.match(songUrl);
+          const response = await cache.match(serverSongUrl);
           
           if (response) {
             // Play from cache
@@ -41,9 +43,9 @@ export default function Player({ currentSong, isPlaying, onPlayPause, onNext, on
             audioRef.current.src = objectUrl;
             console.log('Playing from cache:', currentSong.title);
           } else {
-            // Play from server
-            audioRef.current.src = songUrl;
-            console.log('Playing from server:', currentSong.title);
+            // Play from fallback URL (RapidAPI directly)
+            audioRef.current.src = fallbackUrl;
+            console.log('Playing from fallback URL:', currentSong.title);
           }
 
           if (isPlaying) {
@@ -51,9 +53,9 @@ export default function Player({ currentSong, isPlaying, onPlayPause, onNext, on
           }
         } catch (error) {
           console.error("Error loading audio:", error);
-          // Fallback to server
+          // Fallback to URL
           if (audioRef.current) {
-            audioRef.current.src = songUrl;
+            audioRef.current.src = fallbackUrl;
             if (isPlaying) audioRef.current.play().catch(e => console.error("Play error:", e));
           }
         }

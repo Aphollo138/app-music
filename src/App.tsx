@@ -10,6 +10,7 @@ interface Song {
   thumbnail: string;
   artist?: string;
   genre?: string;
+  downloadUrl?: string;
 }
 
 interface Playlist {
@@ -91,16 +92,38 @@ export default function App() {
   const cacheAudioFile = async (song: Song) => {
     try {
       const cache = await caches.open('musicas-cache');
-      const url = `${RENDER_URL}/downloads/${song.filename}`;
+      const cacheKey = `${RENDER_URL}/downloads/${song.filename}`;
       
-      // Fetch the file and put it in cache
-      const response = await fetch(url);
-      if (response.ok) {
-        await cache.put(url, response.clone());
-        checkCachedSongs(); // Update UI
+      // Tenta baixar o arquivo diretamente da URL do RapidAPI
+      const urlToFetch = song.downloadUrl || cacheKey;
+      
+      try {
+        const response = await fetch(urlToFetch);
+        if (response.ok) {
+          // Salva no cache com a chave do servidor para que o Player consiga encontrar
+          await cache.put(cacheKey, response.clone());
+          checkCachedSongs(); // Update UI
+          return;
+        }
+      } catch (e) {
+        console.warn('Fetch normal falhou (possível CORS).', e);
       }
+
+      throw new Error('Não foi possível fazer o cache do áudio.');
+
     } catch (error) {
-      console.error('Failed to cache audio:', error);
+      console.warn('CORS issue or cache failed, falling back to direct download link:', error);
+      // Fallback: cria um link invisível para forçar o download no navegador do usuário
+      if (song.downloadUrl) {
+        const a = document.createElement('a');
+        a.href = song.downloadUrl;
+        a.download = song.filename;
+        a.target = '_blank';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
     }
   };
 
