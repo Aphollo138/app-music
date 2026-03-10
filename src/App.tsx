@@ -252,6 +252,33 @@ export default function App() {
     }
   };
 
+  const handleEditSong = async (songId: string, newTitle: string, newArtist: string) => {
+    try {
+      const saved = localStorage.getItem('neonwaves-songs');
+      if (saved) {
+        const localSongs: Song[] = JSON.parse(saved);
+        const updatedSongs = localSongs.map(s => 
+          s.id === songId ? { ...s, title: newTitle, artist: newArtist } : s
+        );
+        localStorage.setItem('neonwaves-songs', JSON.stringify(updatedSongs));
+        setSongs(updatedSongs);
+      }
+      
+      // Optionally update server if it exists
+      fetch(`${BACKEND_URL}/api/songs/${songId}`, { 
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle, artist: newArtist })
+      }).catch(e => console.error(e));
+      
+      if (currentSong?.id === songId) {
+        setCurrentSong(prev => prev ? { ...prev, title: newTitle, artist: newArtist } : null);
+      }
+    } catch (error) {
+      console.error('Failed to edit song:', error);
+    }
+  };
+
   // Filter songs based on view
   const getDisplaySongs = () => {
     if (activeView.startsWith('playlist:')) {
@@ -297,6 +324,7 @@ export default function App() {
           onAddToPlaylist={handleAddToPlaylist}
           onCreatePlaylist={handleCreatePlaylist}
           onDeleteSong={handleDeleteSong}
+          onEditSong={handleEditSong}
           onOpenPlaylist={handleOpenPlaylist}
           onBack={handleBackToLibrary}
           isConverting={isConverting}

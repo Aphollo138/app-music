@@ -215,6 +215,27 @@ app.post('/api/convert', async (req, res) => {
   }
 });
 
+// Update a song
+app.put('/api/songs/:id', (req, res) => {
+    const { id } = req.params;
+    const { title, artist } = req.body;
+    console.log(`[UPDATE] Request received for song ID: ${id}`);
+    
+    try {
+        const stmt = db.prepare('UPDATE songs SET title = ?, artist = ? WHERE id = ?');
+        const info = stmt.run(title, artist, id);
+        
+        if (info.changes > 0) {
+            res.json({ success: true });
+        } else {
+            res.status(404).json({ error: 'Song not found' });
+        }
+    } catch (error: any) {
+        console.error('[UPDATE] Error:', error);
+        res.status(500).json({ error: 'Failed to update song', details: error.message });
+    }
+});
+
 // Delete a song
 app.delete('/api/songs/:id', (req, res) => {
     const { id } = req.params;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Search, Play, Plus, Clock, Music, MoreVertical, Download as InstallIcon, Settings, X, Disc, Mic2, ListMusic, Trash2, FileText, Copy, Check } from 'lucide-react';
+import { Download, Search, Play, Plus, Clock, Music, MoreVertical, Download as InstallIcon, Settings, X, Disc, Mic2, ListMusic, Trash2, FileText, Copy, Check, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Song {
@@ -25,6 +25,7 @@ interface MainContentProps {
   onAddToPlaylist: (playlistId: string, songId: string) => Promise<void>;
   onCreatePlaylist: (name: string) => Promise<void>;
   onDeleteSong: (songId: string) => Promise<void>;
+  onEditSong: (songId: string, newTitle: string, newArtist: string) => Promise<void>;
   onOpenPlaylist: (playlistId: string) => void;
   onBack: () => void;
   isConverting: boolean;
@@ -32,7 +33,7 @@ interface MainContentProps {
   cachedSongIds: string[];
 }
 
-export default function MainContent({ songs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onDeleteSong, onOpenPlaylist, onBack, isConverting, activeView, cachedSongIds }: MainContentProps) {
+export default function MainContent({ songs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onDeleteSong, onEditSong, onOpenPlaylist, onBack, isConverting, activeView, cachedSongIds }: MainContentProps) {
   const [url, setUrl] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'musics' | 'playlists' | 'artists' | 'genres'>('musics');
@@ -94,14 +95,6 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
   const handleOptionAddToPlaylist = () => {
     setShowOptionsModal(false);
     setShowPlaylistSelector(true);
-  };
-
-  const handleOptionDelete = async () => {
-    if (selectedSong && confirm(`Tem certeza que deseja excluir "${selectedSong.title}"?`)) {
-        await onDeleteSong(selectedSong.id);
-        setShowOptionsModal(false);
-        setSelectedSong(null);
-    }
   };
 
   const handleOptionViewLyrics = async () => {
@@ -311,7 +304,33 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
                                     </div>
                                 </div>
 
-                                <div className="flex items-center">
+                                <div className="flex items-center gap-2">
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const newTitle = prompt('Novo título:', song.title);
+                                            const newArtist = prompt('Novo artista:', song.artist || '');
+                                            if (newTitle !== null && newArtist !== null) {
+                                                onEditSong(song.id, newTitle, newArtist);
+                                            }
+                                        }}
+                                        className="w-8 h-8 flex items-center justify-center bg-white/10 text-gray-300 hover:text-white rounded-full hover:bg-blue-500/50 transition-colors"
+                                        title="Editar"
+                                    >
+                                        <Pencil size={14} />
+                                    </button>
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (confirm(`Tem certeza que deseja excluir "${song.title}"?`)) {
+                                                onDeleteSong(song.id);
+                                            }
+                                        }}
+                                        className="w-8 h-8 flex items-center justify-center bg-white/10 text-gray-300 hover:text-white rounded-full hover:bg-red-500/50 transition-colors"
+                                        title="Excluir"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
                                     <button 
                                         onClick={(e) => handleOpenOptions(song, e)}
                                         className="p-2 text-gray-500 hover:text-white"
@@ -518,13 +537,6 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
                         >
                             <ListMusic size={20} className="text-gray-400" />
                             Adicionar à Playlist
-                        </button>
-                        <button 
-                            onClick={handleOptionDelete}
-                            className="w-full flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl text-red-500 transition-colors"
-                        >
-                            <Trash2 size={20} />
-                            Excluir Música
                         </button>
                         <button 
                             onClick={handleOptionViewLyrics}
