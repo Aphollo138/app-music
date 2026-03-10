@@ -109,7 +109,12 @@ app.post('/api/convert', async (req, res) => {
     }
 
     // 1. Request conversion from Cobalt API with Fallback
-    const cobaltInstances = ['https://cobalt.api.timelessnesses.me/', 'https://co.wuk.sh/'];
+    const cobaltInstances = [
+      'https://api.cobalt.tools',
+      'https://cobalt-api.pepegapi.com',
+      'https://api.wuk.sh',
+      'https://co.eepy.today'
+    ];
     let cobaltData = null;
     let downloadUrl = null;
     let lastError = null;
@@ -122,7 +127,9 @@ app.post('/api/convert', async (req, res) => {
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'User-Agent': 'NeonWaves/1.0'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Origin': 'https://meu-site-conversor.com'
           },
           body: JSON.stringify({
             url: url,
