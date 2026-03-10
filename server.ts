@@ -108,38 +108,58 @@ app.post('/api/convert', async (req, res) => {
       console.log(`[SISTEMA] Diretório recriado antes do download: ${DOWNLOAD_DIR}`);
     }
 
-    // 1. Request conversion from Cobalt API
-    const cobaltRes = await fetch('https://api.cobalt.tools/api/json', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'User-Agent': 'NeonWaves/1.0'
-      },
-      body: JSON.stringify({
-        url: url,
-        isAudioOnly: true,
-        aFormat: 'mp3'
-      })
-    });
+    // 1. Request conversion from Cobalt API with Fallback
+    const cobaltInstances = ['https://cobalt.api.timelessnesses.me/', 'https://co.wuk.sh/'];
+    let cobaltData = null;
+    let downloadUrl = null;
+    let lastError = null;
 
-    if (!cobaltRes.ok) {
-      const errorText = await cobaltRes.text();
-      throw new Error(`Cobalt API error: ${cobaltRes.status} ${errorText}`);
+    for (const instance of cobaltInstances) {
+      try {
+        console.log(`[CONVERSÃO] Tentando instância Cobalt: ${instance}`);
+        const cobaltRes = await fetch(instance, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'User-Agent': 'NeonWaves/1.0'
+          },
+          body: JSON.stringify({
+            url: url,
+            downloadMode: 'audio',
+            audioFormat: 'mp3',
+            filenameStyle: 'basic'
+          })
+        });
+
+        if (!cobaltRes.ok) {
+          const errorText = await cobaltRes.text();
+          throw new Error(`Cobalt API error: ${cobaltRes.status} ${errorText}`);
+        }
+
+        const data = await cobaltRes.json();
+        
+        if (data.status === 'error') {
+          throw new Error(`Cobalt returned error: ${data.text}`);
+        }
+
+        if (data.url) {
+          cobaltData = data;
+          downloadUrl = data.url;
+          console.log(`[CONVERSÃO] Sucesso na instância ${instance}. Link: ${downloadUrl}`);
+          break; // Stop loop on success
+        } else {
+           throw new Error('No download URL returned from Cobalt');
+        }
+      } catch (err: any) {
+        console.warn(`[CONVERSÃO] Falha na instância ${instance}: ${err.message}`);
+        lastError = err;
+      }
     }
 
-    const cobaltData = await cobaltRes.json();
-    
-    if (cobaltData.status === 'error') {
-      throw new Error(`Cobalt returned error: ${cobaltData.text}`);
-    }
-
-    const downloadUrl = cobaltData.url;
     if (!downloadUrl) {
-      throw new Error('No download URL returned from Cobalt');
+      throw new Error(`Todas as instâncias do Cobalt falharam. Último erro: ${lastError?.message}`);
     }
-
-    console.log(`[CONVERSÃO] Link de download obtido: ${downloadUrl}`);
 
     // We don't have full metadata from Cobalt usually, so we'll try to extract from YouTube directly or use defaults
     // Cobalt sometimes returns filename in the response or we can fetch the stream to get headers
