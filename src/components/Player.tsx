@@ -24,13 +24,47 @@ export default function Player({ currentSong, isPlaying, onPlayPause, onNext, on
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
-    if (currentSong && audioRef.current) {
-      // Use the static public path now
-      audioRef.current.src = `/downloads/${currentSong.filename}`;
-      if (isPlaying) {
-        audioRef.current.play().catch(e => console.error("Play error:", e));
+    const loadAudio = async () => {
+      if (currentSong && audioRef.current) {
+        try {
+          // Check if song is in cache
+          const cache = await caches.open('musicas-cache');
+          const response = await cache.match(`/downloads/${currentSong.filename}`);
+          
+          if (response) {
+            // Play from cache
+            const blob = await response.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            audioRef.current.src = objectUrl;
+            console.log('Playing from cache:', currentSong.title);
+          } else {
+            // Play from server
+            audioRef.current.src = `/downloads/${currentSong.filename}`;
+            console.log('Playing from server:', currentSong.title);
+          }
+
+          if (isPlaying) {
+            audioRef.current.play().catch(e => console.error("Play error:", e));
+          }
+        } catch (error) {
+          console.error("Error loading audio:", error);
+          // Fallback to server
+          if (audioRef.current) {
+            audioRef.current.src = `/downloads/${currentSong.filename}`;
+            if (isPlaying) audioRef.current.play().catch(e => console.error("Play error:", e));
+          }
+        }
       }
-    }
+    };
+
+    loadAudio();
+
+    // Cleanup object URL to prevent memory leaks
+    return () => {
+      if (audioRef.current?.src.startsWith('blob:')) {
+        URL.revokeObjectURL(audioRef.current.src);
+      }
+    };
   }, [currentSong]);
 
   useEffect(() => {

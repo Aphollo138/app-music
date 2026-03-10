@@ -29,9 +29,10 @@ interface MainContentProps {
   onBack: () => void;
   isConverting: boolean;
   activeView: string;
+  cachedSongIds: string[];
 }
 
-export default function MainContent({ songs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onDeleteSong, onOpenPlaylist, onBack, isConverting, activeView }: MainContentProps) {
+export default function MainContent({ songs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onDeleteSong, onOpenPlaylist, onBack, isConverting, activeView, cachedSongIds }: MainContentProps) {
   const [url, setUrl] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'musics' | 'playlists' | 'artists' | 'genres'>('musics');
@@ -298,7 +299,12 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
                                 </div>
                                 
                                 <div className="flex-1 min-w-0">
-                                    <h4 className="text-white font-medium truncate text-sm mb-0.5">{song.title}</h4>
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                        <h4 className="text-white font-medium truncate text-sm">{song.title}</h4>
+                                        {cachedSongIds.includes(song.id) && (
+                                            <Check size={14} className="text-green-500 flex-shrink-0" title="Download Concluído" />
+                                        )}
+                                    </div>
                                     <div className="flex items-center text-xs text-gray-500 gap-2">
                                         <span className="truncate max-w-[150px]">{song.artist || 'Unknown Artist'}</span>
                                     </div>

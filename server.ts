@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
@@ -16,7 +17,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const db = new Database('songs.db');
 db.pragma('foreign_keys = ON'); // Enable foreign keys
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
@@ -29,14 +30,17 @@ app.use((req, res, next) => {
 });
 
 // Ensure downloads directory exists in public folder
-const PUBLIC_DIR = path.join(__dirname, 'public');
+// Using process.cwd() ensures it creates in the project root regardless of where the script is run from
+const PUBLIC_DIR = path.join(process.cwd(), 'public');
 const DOWNLOAD_DIR = path.join(PUBLIC_DIR, 'downloads');
 
 if (!fs.existsSync(PUBLIC_DIR)) {
-  fs.mkdirSync(PUBLIC_DIR);
+  fs.mkdirSync(PUBLIC_DIR, { recursive: true });
+  console.log(`[SISTEMA] Diretório criado: ${PUBLIC_DIR}`);
 }
 if (!fs.existsSync(DOWNLOAD_DIR)) {
-  fs.mkdirSync(DOWNLOAD_DIR);
+  fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
+  console.log(`[SISTEMA] Diretório criado: ${DOWNLOAD_DIR}`);
 }
 
 // Serve public directory statically
@@ -93,7 +97,7 @@ app.post('/api/convert', async (req, res) => {
   }
 
   try {
-    console.log(`Fetching metadata for: ${url}`);
+    console.log(`[CONVERSÃO] Iniciando extração de metadados para: ${url}`);
     
     // Get metadata first
     const rawMeta = await ytDlpExec(url, {
@@ -113,6 +117,8 @@ app.post('/api/convert', async (req, res) => {
     // Try to get genre, fallback to categories or Unknown
     const genre = info.genre || (info.categories && info.categories.length > 0 ? info.categories[0] : 'Unknown Genre');
 
+    console.log(`[CONVERSÃO] Metadados obtidos com sucesso. Título: "${title}"`);
+
     const id = uuidv4();
     
     // Sanitize title for filename
@@ -121,7 +127,7 @@ app.post('/api/convert', async (req, res) => {
     // Use absolute path for output template to ensure it goes to the right place
     const outputTemplate = path.join(DOWNLOAD_DIR, `${cleanTitle}.%(ext)s`);
 
-    console.log(`Starting download: ${title}`);
+    console.log(`[CONVERSÃO] Iniciando download e extração de áudio para: "${title}"`);
 
     // Download command
     await ytDlpExec(url, {
@@ -132,15 +138,17 @@ app.post('/api/convert', async (req, res) => {
         ffmpegLocation: ffmpegPath
     });
 
-    console.log(`Download finished: ${title}`);
+    console.log(`[CONVERSÃO] Áudio extraído e salvo com sucesso em: ${outputTemplate}`);
     
     const stmt = db.prepare('INSERT INTO songs (id, title, filename, duration, thumbnail, artist, genre) VALUES (?, ?, ?, ?, ?, ?, ?)');
     stmt.run(id, title, filename, duration, thumbnail, artist, genre);
 
+    console.log(`[CONVERSÃO] Música salva no banco de dados. Processo concluído para: "${title}"`);
+
     res.json({ success: true, song: { id, title, filename, duration, thumbnail, artist, genre } });
 
   } catch (error: any) {
-    console.error('Conversion error:', error);
+    console.error('[CONVERSÃO] Erro durante o processo:', error);
     res.status(500).json({ error: 'Failed to process video', details: error.message });
   }
 });

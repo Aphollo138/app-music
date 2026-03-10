@@ -24,22 +24,45 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [activeView, setActiveView] = useState('home');
   const [isConverting, setIsConverting] = useState(false);
+  const [cachedSongIds, setCachedSongIds] = useState<string[]>([]);
+
+  // Load local songs
+  const loadLocalSongs = () => {
+    const saved = localStorage.getItem('neonwaves-songs');
+    if (saved) {
+      setSongs(JSON.parse(saved));
+    }
+  };
+
+  const checkCachedSongs = async () => {
+    try {
+      const cache = await caches.open('musicas-cache');
+      const keys = await cache.keys();
+      const cachedUrls = keys.map(req => new URL(req.url).pathname);
+      
+      setSongs(currentSongs => {
+        const cachedIds = currentSongs.filter(song => 
+          cachedUrls.includes(`/downloads/${song.filename}`)
+        ).map(s => s.id);
+        setCachedSongIds(cachedIds);
+        return currentSongs;
+      });
+    } catch (error) {
+      console.error('Error checking cache:', error);
+    }
+  };
 
   // Fetch initial data
   useEffect(() => {
-    fetchSongs();
+    loadLocalSongs();
     fetchPlaylists();
   }, []);
 
-  const fetchSongs = async () => {
-    try {
-      const res = await fetch('/api/songs');
-      const data = await res.json();
-      setSongs(data);
-    } catch (error) {
-      console.error('Failed to fetch songs:', error);
+  useEffect(() => {
+    if (songs.length > 0) {
+      checkCachedSongs();
     }
-  };
+  }, [songs]);
 
   const fetchPlaylists = async () => {
     try {
@@ -48,6 +71,34 @@ export default function App() {
       setPlaylists(data);
     } catch (error) {
       console.error('Failed to fetch playlists:', error);
+    }
+  };
+
+  const salvarNaPlaylist = (song: Song) => {
+    const saved = localStorage.getItem('neonwaves-songs');
+    let localSongs: Song[] = saved ? JSON.parse(saved) : [];
+    
+    // Avoid duplicates
+    if (!localSongs.find(s => s.id === song.id)) {
+      localSongs = [song, ...localSongs];
+      localStorage.setItem('neonwaves-songs', JSON.stringify(localSongs));
+      setSongs(localSongs);
+    }
+  };
+
+  const cacheAudioFile = async (song: Song) => {
+    try {
+      const cache = await caches.open('musicas-cache');
+      const url = `/downloads/${song.filename}`;
+      
+      // Fetch the file and put it in cache
+      const response = await fetch(url);
+      if (response.ok) {
+        await cache.put(url, response.clone());
+        checkCachedSongs(); // Update UI
+      }
+    } catch (error) {
+      console.error('Failed to cache audio:', error);
     }
   };
 
@@ -64,9 +115,8 @@ export default function App() {
       
       const data = await res.json();
       if (data.success) {
-        await fetchSongs(); // Refresh list
-        // Optionally play the new song immediately
-        // handlePlay(data.song);
+        salvarNaPlaylist(data.song);
+        await cacheAudioFile(data.song);
       }
     } catch (error) {
       console.error(error);
@@ -129,8 +179,7 @@ export default function App() {
             
             // If foreign key constraint failed, the song might be deleted
             if (err.details && err.details.includes('FOREIGN KEY constraint failed')) {
-                alert('Failed to add: Song might have been deleted. Refreshing list...');
-                fetchSongs(); // Refresh automatically
+                alert('Failed to add: Song might have been deleted.');
             } else {
                 alert(`Failed to add: ${err.error || 'Unknown error'}`);
             }
@@ -143,45 +192,40 @@ export default function App() {
 
   const handleDeleteSong = async (songId: string) => {
     try {
-        // Add timestamp to bypass potential service worker caches
-        const res = await fetch(`/api/songs/${songId}?t=${Date.now()}`, {
-            method: 'DELETE',
-            headers: {
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
-            }
-        });
-        
-        if (res.ok) {
-            setSongs(songs.filter(s => s.id !== songId));
-            if (currentSong?.id === songId) {
-                setCurrentSong(null);
-                setIsPlaying(false);
-            }
-        } else {
-            const status = res.status;
-            const statusText = res.statusText;
-            console.error(`Delete failed: ${status} ${statusText}`);
-            try {
-                const err = await res.json();
-                alert(`Failed to delete song: ${err.error || statusText}`);
-            } catch (e) {
-                alert(`Failed to delete song: ${status} ${statusText}`);
-            }
+      // Delete from local storage
+      const saved = localStorage.getItem('neonwaves-songs');
+      if (saved) {
+        const localSongs: Song[] = JSON.parse(saved);
+        const songToDelete = localSongs.find(s => s.id === songId);
+        const updatedSongs = localSongs.filter(s => s.id !== songId);
+        localStorage.setItem('neonwaves-songs', JSON.stringify(updatedSongs));
+        setSongs(updatedSongs);
+
+        // Delete from cache
+        if (songToDelete) {
+          const cache = await caches.open('musicas-cache');
+          await cache.delete(`/downloads/${songToDelete.filename}`);
+          checkCachedSongs();
         }
+      }
+
+      // Optionally delete from server if it still exists
+      fetch(`/api/songs/${songId}`, { method: 'DELETE' }).catch(e => console.error(e));
+
+      if (currentSong?.id === songId) {
+        setCurrentSong(null);
+        setIsPlaying(false);
+      }
     } catch (error) {
-        console.error('Failed to delete song:', error);
-        alert('Network error deleting song');
+      console.error('Failed to delete song:', error);
+      alert('Error deleting song');
     }
   };
 
   // Filter songs based on view
   const getDisplaySongs = () => {
     if (activeView.startsWith('playlist:')) {
-        // In a real app, we would fetch playlist songs specifically or filter
-        // For now, let's just show all songs as a placeholder or implement the fetch
-        // We need to fetch playlist songs when view changes
-        return songs; // Placeholder: Ideally we fetch specific songs
+        return displaySongs;
     }
     return songs;
   };
@@ -216,7 +260,7 @@ export default function App() {
       
       <div className="flex-1 flex flex-col relative w-full max-w-md mx-auto bg-[#121212] shadow-2xl">
         <MainContent 
-          songs={displaySongs}
+          songs={getDisplaySongs()}
           playlists={playlists}
           onConvert={handleConvert}
           onPlay={handlePlay}
@@ -227,6 +271,7 @@ export default function App() {
           onBack={handleBackToLibrary}
           isConverting={isConverting}
           activeView={activeView}
+          cachedSongIds={cachedSongIds}
         />
         
         {currentSong && (
