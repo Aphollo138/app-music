@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import Player from './components/Player';
 import MainContent from './components/MainContent';
 
+const API_URL = 'https://app-music-1.onrender.com';
+
 interface Song {
   id: string;
   title: string;
@@ -35,8 +37,6 @@ export default function App() {
     }
   };
 
-  const BACKEND_URL = ''; // Use relative path to hit the local server
-
   const checkCachedSongs = async () => {
     try {
       const cache = await caches.open('musicas-cache');
@@ -45,7 +45,7 @@ export default function App() {
       
       setSongs(currentSongs => {
         const cachedIds = currentSongs.filter(song => 
-          cachedUrls.includes(`${BACKEND_URL}/downloads/${song.filename}`)
+          cachedUrls.includes(`${API_URL}/downloads/${song.filename}`)
         ).map(s => s.id);
         setCachedSongIds(cachedIds);
         return currentSongs;
@@ -69,7 +69,7 @@ export default function App() {
 
   const fetchPlaylists = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/playlists`);
+      const res = await fetch(`${API_URL}/api/playlists`);
       const data = await res.json();
       setPlaylists(data);
     } catch (error) {
@@ -92,7 +92,7 @@ export default function App() {
   const cacheAudioFile = async (song: Song) => {
     try {
       const cache = await caches.open('musicas-cache');
-      const cacheKey = `${BACKEND_URL}/downloads/${song.filename}`;
+      const cacheKey = `${API_URL}/downloads/${song.filename}`;
       
       // Tenta baixar o arquivo diretamente da URL do RapidAPI
       const urlToFetch = song.downloadUrl || cacheKey;
@@ -130,7 +130,7 @@ export default function App() {
   const handleConvert = async (url: string) => {
     setIsConverting(true);
     try {
-      const convertUrl = `${BACKEND_URL}/api/convert`;
+      const convertUrl = `${API_URL}/api/convert`;
       console.log('Enviando para:', convertUrl);
       
       const res = await fetch(convertUrl, {
@@ -183,7 +183,7 @@ export default function App() {
 
   const handleCreatePlaylist = async (name: string) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/playlists`, {
+      const res = await fetch(`${API_URL}/api/playlists`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
@@ -196,7 +196,7 @@ export default function App() {
 
   const handleEditPlaylist = async (id: string, name: string) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/playlists/${id}`, {
+      const res = await fetch(`${API_URL}/api/playlists/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
@@ -209,7 +209,7 @@ export default function App() {
 
   const handleDeletePlaylist = async (id: string) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/playlists/${id}`, {
+      const res = await fetch(`${API_URL}/api/playlists/${id}`, {
         method: 'DELETE',
       });
       if (res.ok) {
@@ -225,7 +225,7 @@ export default function App() {
 
   const handleAddToPlaylist = async (playlistId: string, songId: string) => {
     try {
-        const res = await fetch(`${BACKEND_URL}/api/playlists/${playlistId}/songs`, {
+        const res = await fetch(`${API_URL}/api/playlists/${playlistId}/songs`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ songId }),
@@ -263,13 +263,13 @@ export default function App() {
         // Delete from cache
         if (songToDelete) {
           const cache = await caches.open('musicas-cache');
-          await cache.delete(`${BACKEND_URL}/downloads/${songToDelete.filename}`);
+          await cache.delete(`${API_URL}/downloads/${songToDelete.filename}`);
           checkCachedSongs();
         }
       }
 
       // Optionally delete from server if it still exists
-      fetch(`${BACKEND_URL}/api/songs/${songId}`, { method: 'DELETE' }).catch(e => console.error(e));
+      fetch(`${API_URL}/api/songs/${songId}`, { method: 'DELETE' }).catch(e => console.error(e));
 
       if (currentSong?.id === songId) {
         setCurrentSong(null);
@@ -294,7 +294,7 @@ export default function App() {
       }
       
       // Optionally update server if it exists
-      fetch(`${BACKEND_URL}/api/songs/${songId}`, { 
+      fetch(`${API_URL}/api/songs/${songId}`, { 
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: newTitle, artist: newArtist })
@@ -330,7 +330,7 @@ export default function App() {
   useEffect(() => {
     if (activeView.startsWith('playlist:')) {
         const playlistId = activeView.split(':')[1];
-        fetch(`${BACKEND_URL}/api/playlists/${playlistId}/songs`)
+        fetch(`${API_URL}/api/playlists/${playlistId}/songs`)
             .then(res => res.json())
             .then(data => setDisplaySongs(data))
             .catch(e => console.error(e));

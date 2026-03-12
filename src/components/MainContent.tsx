@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Download, Search, Play, Plus, Clock, Music, MoreVertical, Download as InstallIcon, Settings, X, Disc, Mic2, ListMusic, Trash2, FileText, Copy, Check, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+const API_URL = 'https://app-music-1.onrender.com';
+
 interface Song {
   id: string;
   title: string;
@@ -114,8 +116,7 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
             artist: selectedSong.artist || ''
         });
         
-        const BACKEND_URL = '';
-        const res = await fetch(`${BACKEND_URL}/api/lyrics?${params}`);
+        const res = await fetch(`${API_URL}/api/lyrics?${params}`);
         const data = await res.json();
         
         if (res.ok && data.lyrics) {

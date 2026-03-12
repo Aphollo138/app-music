@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+const API_URL = 'https://app-music-1.onrender.com';
+
 interface Song {
   id: string;
   title: string;
@@ -27,8 +29,7 @@ export default function Player({ currentSong, isPlaying, onPlayPause, onNext, on
   useEffect(() => {
     const loadAudio = async () => {
       if (currentSong && audioRef.current) {
-        const BACKEND_URL = 'https://app-music-1.onrender.com';
-        const serverSongUrl = `${BACKEND_URL}/downloads/${currentSong.filename}`;
+        const serverSongUrl = `${API_URL}/downloads/${currentSong.filename}`;
         const fallbackUrl = currentSong.downloadUrl || serverSongUrl;
         
         try {
