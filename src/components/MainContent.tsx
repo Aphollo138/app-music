@@ -21,6 +21,7 @@ interface Playlist {
 
 interface MainContentProps {
   songs: Song[];
+  allSongs: Song[];
   playlists: Playlist[];
   onConvert: (url: string) => Promise<void>;
   onPlay: (song: Song) => void;
@@ -33,14 +34,13 @@ interface MainContentProps {
   onOpenPlaylist: (playlistId: string) => void;
   onBack: () => void;
   onSortSongs: () => void;
-  onAddLocalSong: (file: File) => Promise<void>;
   onReorderSongs: (oldIndex: number, newIndex: number) => void;
   isConverting: boolean;
   activeView: string;
   cachedSongIds: string[];
 }
 
-export default function MainContent({ songs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onEditPlaylist, onDeletePlaylist, onDeleteSong, onEditSong, onOpenPlaylist, onBack, onSortSongs, onAddLocalSong, onReorderSongs, isConverting, activeView, cachedSongIds }: MainContentProps) {
+export default function MainContent({ songs, allSongs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onEditPlaylist, onDeletePlaylist, onDeleteSong, onEditSong, onOpenPlaylist, onBack, onSortSongs, onReorderSongs, isConverting, activeView, cachedSongIds }: MainContentProps) {
   const [url, setUrl] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'musics' | 'playlists' | 'artists' | 'genres'>('musics');
@@ -51,6 +51,7 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
   const [showCreatePlaylistModal, setShowCreatePlaylistModal] = useState(false);
+  const [showAddSongToPlaylistModal, setShowAddSongToPlaylistModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
 
   // Lyrics state
@@ -230,26 +231,17 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
             <button onClick={onSortSongs} className="text-white hover:text-gray-300" title="Ordenar A-Z">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
             </button>
-            <div className="relative">
-                <input 
-                    type="file" 
-                    accept="audio/*" 
-                    id="localFileInput" 
-                    className="hidden" 
-                    onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                            onAddLocalSong(e.target.files[0]);
-                        }
-                    }}
-                />
-                <button 
-                    onClick={() => document.getElementById('localFileInput')?.click()}
-                    className="text-white hover:text-gray-300 flex items-center justify-center bg-white/10 rounded-full p-1.5"
-                    title="Adicionar Música Local"
-                >
-                    <Plus size={20} />
-                </button>
-            </div>
+            {isPlaylistView && (
+                <div className="relative">
+                    <button 
+                        onClick={() => setShowAddSongToPlaylistModal(true)}
+                        className="text-white hover:text-gray-300 flex items-center justify-center bg-white/10 rounded-full p-1.5"
+                        title="Adicionar Música à Playlist"
+                    >
+                        <Plus size={20} />
+                    </button>
+                </div>
+            )}
             {!isPlaylistView && (
                 <button 
                     onClick={() => setShowImportModal(true)}
@@ -812,6 +804,71 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
             </motion.div>
         )}
       </AnimatePresence>
+      {/* Add Song to Playlist Modal */}
+      <AnimatePresence>
+        {showAddSongToPlaylistModal && isPlaylistView && currentPlaylistId && (
+            <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                onClick={() => setShowAddSongToPlaylistModal(false)}
+            >
+                <motion.div 
+                    initial={{ scale: 0.95, y: 20 }}
+                    animate={{ scale: 1, y: 0 }}
+                    exit={{ scale: 0.95, y: 20 }}
+                    className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[80vh]"
+                    onClick={e => e.stopPropagation()}
+                >
+                    <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
+                        <h3 className="text-lg font-bold text-white">Adicionar Música</h3>
+                        <button 
+                            onClick={() => setShowAddSongToPlaylistModal(false)}
+                            className="text-gray-400 hover:text-white p-1"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+                    
+                    <div className="overflow-y-auto flex-1 p-2">
+                        {allSongs.length === 0 ? (
+                            <div className="p-6 text-center text-gray-500">
+                                Nenhuma música na biblioteca.
+                            </div>
+                        ) : (
+                            allSongs.map(song => {
+                                const isAlreadyInPlaylist = songs.some(s => s.id === song.id);
+                                return (
+                                    <button
+                                        key={song.id}
+                                        onClick={async () => {
+                                            if (!isAlreadyInPlaylist) {
+                                                await onAddToPlaylist(currentPlaylistId, song.id);
+                                                setShowAddSongToPlaylistModal(false);
+                                            }
+                                        }}
+                                        disabled={isAlreadyInPlaylist}
+                                        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left ${isAlreadyInPlaylist ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/5'}`}
+                                    >
+                                        <img src={song.thumbnail} alt={song.title} className="w-10 h-10 rounded-md object-cover" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-white font-medium truncate text-sm">{song.title}</p>
+                                            <p className="text-gray-400 text-xs truncate">{song.artist || 'Unknown Artist'}</p>
+                                        </div>
+                                        {isAlreadyInPlaylist && (
+                                            <Check size={16} className="text-green-500" />
+                                        )}
+                                    </button>
+                                );
+                            })
+                        )}
+                    </div>
+                </motion.div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

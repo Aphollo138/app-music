@@ -231,7 +231,13 @@ export default function App() {
             body: JSON.stringify({ songId }),
         });
         if (res.ok) {
-            // alert('Added to playlist!'); // Optional feedback
+            // Refresh playlist if we are currently viewing it
+            if (activeView === `playlist:${playlistId}`) {
+                fetch(`${API_URL}/api/playlists/${playlistId}/songs`)
+                    .then(res => res.json())
+                    .then(data => setDisplaySongs(data))
+                    .catch(e => console.error(e));
+            }
         } else {
             const err = await res.json();
             console.error('Add to playlist failed:', err);
@@ -318,41 +324,6 @@ export default function App() {
     }
   };
 
-  const handleAddLocalSong = async (file: File) => {
-    const id = `local-${Date.now()}`;
-    const newSong: Song = {
-      id,
-      title: file.name.replace(/\.[^/.]+$/, ""),
-      artist: 'Música Local',
-      filename: file.name,
-      duration: 0,
-      thumbnail: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&q=80',
-      downloadUrl: `${API_URL}/downloads/${file.name}`
-    };
-
-    try {
-      const cache = await caches.open('musicas-cache');
-      const fakeUrl = `${API_URL}/downloads/${newSong.filename}`;
-      const response = new Response(file, {
-        headers: {
-          'Content-Type': file.type || 'audio/mpeg',
-          'Content-Length': file.size.toString()
-        }
-      });
-      await cache.put(fakeUrl, response);
-      
-      const saved = localStorage.getItem('neonwaves-songs');
-      let localSongs: Song[] = saved ? JSON.parse(saved) : [];
-      localSongs = [newSong, ...localSongs];
-      localStorage.setItem('neonwaves-songs', JSON.stringify(localSongs));
-      setSongs(localSongs);
-      checkCachedSongs();
-    } catch (error) {
-      console.error('Error saving local song:', error);
-      alert('Erro ao salvar música local.');
-    }
-  };
-
   const handleReorderSongs = (oldIndex: number, newIndex: number) => {
     setSongs(prevSongs => {
       const newSongs = [...prevSongs];
@@ -402,6 +373,7 @@ export default function App() {
       <div className="flex-1 flex flex-col relative w-full max-w-md mx-auto bg-[#121212] shadow-2xl">
         <MainContent 
           songs={getDisplaySongs()}
+          allSongs={songs}
           playlists={playlists}
           onConvert={handleConvert}
           onPlay={handlePlay}
@@ -414,7 +386,6 @@ export default function App() {
           onOpenPlaylist={handleOpenPlaylist}
           onBack={handleBackToLibrary}
           onSortSongs={handleSortSongs}
-          onAddLocalSong={handleAddLocalSong}
           onReorderSongs={handleReorderSongs}
           isConverting={isConverting}
           activeView={activeView}
