@@ -224,6 +224,36 @@ export default function App() {
   };
 
   const handleAddToPlaylist = async (playlistId: string, songId: string) => {
+    const saved = localStorage.getItem('neonwaves-songs');
+    const arrayDaHome: Song[] = saved ? JSON.parse(saved) : [];
+    const idClicado = songId;
+
+    console.log('Procurando ID:', idClicado, 'nesta lista:', arrayDaHome);
+
+    const songToAdd = arrayDaHome.find(s => String(s.id) === String(idClicado));
+
+    if (songToAdd) {
+        // Garante que o objeto copiado não perca nenhuma propriedade
+        const completeSong = { ...songToAdd };
+        
+        // Salva na playlist local
+        const playlistKey = `neonwaves-playlist-${playlistId}`;
+        const savedPlaylist = localStorage.getItem(playlistKey);
+        let playlistSongs: Song[] = savedPlaylist ? JSON.parse(savedPlaylist) : [];
+        
+        if (!playlistSongs.find(s => String(s.id) === String(idClicado))) {
+            playlistSongs.push(completeSong);
+            localStorage.setItem(playlistKey, JSON.stringify(playlistSongs));
+        }
+
+        // Atualiza a tela da Playlist se estiver nela
+        if (activeView === `playlist:${playlistId}`) {
+            setDisplaySongs(playlistSongs);
+        }
+    } else {
+        console.error('Música não encontrada no arrayDaHome!');
+    }
+
     try {
         const res = await fetch(`${API_URL}/api/playlists/${playlistId}/songs`, {
             method: 'POST',
@@ -231,27 +261,21 @@ export default function App() {
             body: JSON.stringify({ songId }),
         });
         if (res.ok) {
-            // Refresh playlist if we are currently viewing it
-            if (activeView === `playlist:${playlistId}`) {
-                fetch(`${API_URL}/api/playlists/${playlistId}/songs`)
-                    .then(res => res.json())
-                    .then(data => setDisplaySongs(data))
-                    .catch(e => console.error(e));
-            }
+            // Sincronizado com sucesso
         } else {
             const err = await res.json();
+            console.log('Procurando ID:', idClicado, 'nesta lista:', arrayDaHome);
             console.error('Add to playlist failed:', err);
             
             // If foreign key constraint failed, the song might be deleted
             if (err.details && err.details.includes('FOREIGN KEY constraint failed')) {
-                alert('Failed to add: Song might have been deleted.');
+                console.warn('Failed to add no backend: Song might have been deleted. Mas foi salva no localStorage localmente.');
             } else {
-                alert(`Failed to add: ${err.error || 'Unknown error'}`);
+                console.error(`Failed to add: ${err.error || 'Unknown error'}`);
             }
         }
     } catch (error) {
         console.error(error);
-        alert('Network error adding to playlist');
     }
   };
 
@@ -356,10 +380,20 @@ export default function App() {
   useEffect(() => {
     if (activeView.startsWith('playlist:')) {
         const playlistId = activeView.split(':')[1];
-        fetch(`${API_URL}/api/playlists/${playlistId}/songs`)
-            .then(res => res.json())
-            .then(data => setDisplaySongs(data))
-            .catch(e => console.error(e));
+        const playlistKey = `neonwaves-playlist-${playlistId}`;
+        const savedPlaylist = localStorage.getItem(playlistKey);
+        
+        if (savedPlaylist) {
+            setDisplaySongs(JSON.parse(savedPlaylist));
+        } else {
+            fetch(`${API_URL}/api/playlists/${playlistId}/songs`)
+                .then(res => res.json())
+                .then(data => {
+                    setDisplaySongs(data);
+                    localStorage.setItem(playlistKey, JSON.stringify(data));
+                })
+                .catch(e => console.error(e));
+        }
     } else {
         setDisplaySongs(songs);
     }
