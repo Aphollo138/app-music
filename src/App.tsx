@@ -358,6 +358,19 @@ export default function App() {
     });
   };
 
+  const handleReorderPlaylistSongs = (playlistId: string, oldIndex: number, newIndex: number) => {
+    setDisplaySongs(prevSongs => {
+      const newSongs = [...prevSongs];
+      const [movedItem] = newSongs.splice(oldIndex, 1);
+      newSongs.splice(newIndex, 0, movedItem);
+      
+      const playlistKey = `neonwaves-playlist-${playlistId}`;
+      localStorage.setItem(playlistKey, JSON.stringify(newSongs));
+      
+      return newSongs;
+    });
+  };
+
   // Filter songs based on view
   const getDisplaySongs = () => {
     if (activeView.startsWith('playlist:')) {
@@ -421,6 +434,7 @@ export default function App() {
           onBack={handleBackToLibrary}
           onSortSongs={handleSortSongs}
           onReorderSongs={handleReorderSongs}
+          onReorderPlaylistSongs={handleReorderPlaylistSongs}
           isConverting={isConverting}
           activeView={activeView}
           cachedSongIds={cachedSongIds}

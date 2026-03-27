@@ -35,12 +35,13 @@ interface MainContentProps {
   onBack: () => void;
   onSortSongs: () => void;
   onReorderSongs: (oldIndex: number, newIndex: number) => void;
+  onReorderPlaylistSongs: (playlistId: string, oldIndex: number, newIndex: number) => void;
   isConverting: boolean;
   activeView: string;
   cachedSongIds: string[];
 }
 
-export default function MainContent({ songs, allSongs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onEditPlaylist, onDeletePlaylist, onDeleteSong, onEditSong, onOpenPlaylist, onBack, onSortSongs, onReorderSongs, isConverting, activeView, cachedSongIds }: MainContentProps) {
+export default function MainContent({ songs, allSongs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onEditPlaylist, onDeletePlaylist, onDeleteSong, onEditSong, onOpenPlaylist, onBack, onSortSongs, onReorderSongs, onReorderPlaylistSongs, isConverting, activeView, cachedSongIds }: MainContentProps) {
   const [url, setUrl] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'musics' | 'playlists' | 'artists' | 'genres'>('musics');
@@ -68,7 +69,7 @@ export default function MainContent({ songs, allSongs, playlists, onConvert, onP
 
   useEffect(() => {
     let sortableInstance: any = null;
-    if (playlistContainerRef.current && activeTab === 'musics' && !isPlaylistView) {
+    if (playlistContainerRef.current && (activeTab === 'musics' || isPlaylistView)) {
       // @ts-ignore
       if (window.Sortable) {
         // @ts-ignore
@@ -76,9 +77,15 @@ export default function MainContent({ songs, allSongs, playlists, onConvert, onP
           animation: 150,
           delay: 200,
           delayOnTouchOnly: true,
+          ghostClass: 'opacity-50',
+          handle: '.drag-handle',
           onEnd: (evt: any) => {
             if (evt.oldIndex !== undefined && evt.newIndex !== undefined && evt.oldIndex !== evt.newIndex) {
-              onReorderSongs(evt.oldIndex, evt.newIndex);
+              if (isPlaylistView && currentPlaylistId) {
+                onReorderPlaylistSongs(currentPlaylistId, evt.oldIndex, evt.newIndex);
+              } else {
+                onReorderSongs(evt.oldIndex, evt.newIndex);
+              }
             }
           }
         });
@@ -89,7 +96,7 @@ export default function MainContent({ songs, allSongs, playlists, onConvert, onP
         sortableInstance.destroy();
       }
     };
-  }, [activeTab, isPlaylistView, songs]);
+  }, [activeTab, isPlaylistView, songs, currentPlaylistId]);
 
   useEffect(() => {
     window.addEventListener('beforeinstallprompt', (e) => {
@@ -325,6 +332,14 @@ export default function MainContent({ songs, allSongs, playlists, onConvert, onP
                                 className="flex items-center gap-3 p-2 active:bg-white/5 rounded-xl transition-colors"
                                 onClick={() => onPlay(song)}
                             >
+                                {isPlaylistView && (
+                                    <div 
+                                        className="drag-handle p-2 -ml-2 text-gray-500 hover:text-white cursor-grab active:cursor-grabbing touch-none"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+                                    </div>
+                                )}
                                 <div className="relative w-14 h-14 flex-shrink-0">
                                     <img src={song.thumbnail} alt={song.title} className="w-full h-full rounded-lg object-cover" />
                                 </div>
