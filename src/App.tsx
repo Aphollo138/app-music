@@ -308,6 +308,61 @@ export default function App() {
     }
   };
 
+  const handleSortSongs = () => {
+    const saved = localStorage.getItem('neonwaves-songs');
+    if (saved) {
+      const localSongs: Song[] = JSON.parse(saved);
+      localSongs.sort((a, b) => a.title.localeCompare(b.title));
+      localStorage.setItem('neonwaves-songs', JSON.stringify(localSongs));
+      setSongs(localSongs);
+    }
+  };
+
+  const handleAddLocalSong = async (file: File) => {
+    const id = `local-${Date.now()}`;
+    const newSong: Song = {
+      id,
+      title: file.name.replace(/\.[^/.]+$/, ""),
+      artist: 'Música Local',
+      filename: file.name,
+      duration: 0,
+      thumbnail: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&q=80',
+      downloadUrl: `${API_URL}/downloads/${file.name}`
+    };
+
+    try {
+      const cache = await caches.open('musicas-cache');
+      const fakeUrl = `${API_URL}/downloads/${newSong.filename}`;
+      const response = new Response(file, {
+        headers: {
+          'Content-Type': file.type || 'audio/mpeg',
+          'Content-Length': file.size.toString()
+        }
+      });
+      await cache.put(fakeUrl, response);
+      
+      const saved = localStorage.getItem('neonwaves-songs');
+      let localSongs: Song[] = saved ? JSON.parse(saved) : [];
+      localSongs = [newSong, ...localSongs];
+      localStorage.setItem('neonwaves-songs', JSON.stringify(localSongs));
+      setSongs(localSongs);
+      checkCachedSongs();
+    } catch (error) {
+      console.error('Error saving local song:', error);
+      alert('Erro ao salvar música local.');
+    }
+  };
+
+  const handleReorderSongs = (oldIndex: number, newIndex: number) => {
+    setSongs(prevSongs => {
+      const newSongs = [...prevSongs];
+      const [movedItem] = newSongs.splice(oldIndex, 1);
+      newSongs.splice(newIndex, 0, movedItem);
+      localStorage.setItem('neonwaves-songs', JSON.stringify(newSongs));
+      return newSongs;
+    });
+  };
+
   // Filter songs based on view
   const getDisplaySongs = () => {
     if (activeView.startsWith('playlist:')) {
@@ -358,6 +413,9 @@ export default function App() {
           onEditSong={handleEditSong}
           onOpenPlaylist={handleOpenPlaylist}
           onBack={handleBackToLibrary}
+          onSortSongs={handleSortSongs}
+          onAddLocalSong={handleAddLocalSong}
+          onReorderSongs={handleReorderSongs}
           isConverting={isConverting}
           activeView={activeView}
           cachedSongIds={cachedSongIds}

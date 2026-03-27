@@ -32,12 +32,15 @@ interface MainContentProps {
   onEditSong: (songId: string, newTitle: string, newArtist: string) => Promise<void>;
   onOpenPlaylist: (playlistId: string) => void;
   onBack: () => void;
+  onSortSongs: () => void;
+  onAddLocalSong: (file: File) => Promise<void>;
+  onReorderSongs: (oldIndex: number, newIndex: number) => void;
   isConverting: boolean;
   activeView: string;
   cachedSongIds: string[];
 }
 
-export default function MainContent({ songs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onEditPlaylist, onDeletePlaylist, onDeleteSong, onEditSong, onOpenPlaylist, onBack, isConverting, activeView, cachedSongIds }: MainContentProps) {
+export default function MainContent({ songs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onEditPlaylist, onDeletePlaylist, onDeleteSong, onEditSong, onOpenPlaylist, onBack, onSortSongs, onAddLocalSong, onReorderSongs, isConverting, activeView, cachedSongIds }: MainContentProps) {
   const [url, setUrl] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'musics' | 'playlists' | 'artists' | 'genres'>('musics');
@@ -59,6 +62,33 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
   const isPlaylistView = activeView.startsWith('playlist:');
   const currentPlaylistId = isPlaylistView ? activeView.split(':')[1] : null;
   const currentPlaylist = playlists.find(p => p.id === currentPlaylistId);
+
+  const playlistContainerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let sortableInstance: any = null;
+    if (playlistContainerRef.current && activeTab === 'musics' && !isPlaylistView) {
+      // @ts-ignore
+      if (window.Sortable) {
+        // @ts-ignore
+        sortableInstance = window.Sortable.create(playlistContainerRef.current, {
+          animation: 150,
+          delay: 200,
+          delayOnTouchOnly: true,
+          onEnd: (evt: any) => {
+            if (evt.oldIndex !== undefined && evt.newIndex !== undefined && evt.oldIndex !== evt.newIndex) {
+              onReorderSongs(evt.oldIndex, evt.newIndex);
+            }
+          }
+        });
+      }
+    }
+    return () => {
+      if (sortableInstance) {
+        sortableInstance.destroy();
+      }
+    };
+  }, [activeTab, isPlaylistView, songs]);
 
   useEffect(() => {
     window.addEventListener('beforeinstallprompt', (e) => {
@@ -186,29 +216,40 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
   return (
     <div className="flex-1 bg-black overflow-y-auto pb-24 h-screen flex flex-col">
       {/* Header */}
-      <div className="flex justify-between items-center px-4 pt-6 pb-2 bg-black z-20">
-        {isPlaylistView ? (
-            <div className="flex items-center gap-3">
-                <button onClick={onBack} className="text-white hover:text-gray-300">
-                    <X size={24} className="rotate-45" /> {/* Using X as Back/Close for now, or ArrowLeft */}
-                </button>
-                <h1 className="text-xl font-bold text-white truncate max-w-[200px]">
-                    {currentPlaylist?.name || 'Playlist'}
-                </h1>
-            </div>
-        ) : (
-            <h1 className="text-2xl font-bold text-white">
-                App Player
+      <div className="sticky top-0 flex justify-between items-center px-4 pt-6 pb-3 backdrop-blur-md bg-black/50 z-30 border-b border-white/10">
+        <div className="flex items-center gap-3">
+            <button onClick={() => isPlaylistView ? onBack() : window.history.back()} className="text-white hover:text-gray-300">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <h1 className="text-lg font-medium text-white truncate max-w-[200px]">
+                {isPlaylistView ? currentPlaylist?.name || 'Playlist' : 'Minhas Músicas'}
             </h1>
-        )}
+        </div>
         
         <div className="flex items-center gap-4">
-            <button className="text-white hover:text-gray-300">
-                <Search size={22} />
+            <button onClick={onSortSongs} className="text-white hover:text-gray-300" title="Ordenar A-Z">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
             </button>
-            <button className="text-white hover:text-gray-300">
-                <Settings size={22} />
-            </button>
+            <div className="relative">
+                <input 
+                    type="file" 
+                    accept="audio/*" 
+                    id="localFileInput" 
+                    className="hidden" 
+                    onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                            onAddLocalSong(e.target.files[0]);
+                        }
+                    }}
+                />
+                <button 
+                    onClick={() => document.getElementById('localFileInput')?.click()}
+                    className="text-white hover:text-gray-300 flex items-center justify-center bg-white/10 rounded-full p-1.5"
+                    title="Adicionar Música Local"
+                >
+                    <Plus size={20} />
+                </button>
+            </div>
             {!isPlaylistView && (
                 <button 
                     onClick={() => setShowImportModal(true)}
@@ -273,6 +314,7 @@ export default function MainContent({ songs, playlists, onConvert, onPlay, onAdd
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
                     className="space-y-4"
+                    ref={playlistContainerRef}
                 >
                     {songs.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-20 text-gray-500">
