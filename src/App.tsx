@@ -13,6 +13,7 @@ interface Song {
   artist?: string;
   genre?: string;
   downloadUrl?: string;
+  createdAt?: number;
 }
 
 interface Playlist {
@@ -33,7 +34,9 @@ export default function App() {
   const loadLocalSongs = () => {
     const saved = localStorage.getItem('neonwaves-songs');
     if (saved) {
-      setSongs(JSON.parse(saved));
+      const parsed = JSON.parse(saved);
+      parsed.sort((a: Song, b: Song) => (b.createdAt || 0) - (a.createdAt || 0));
+      setSongs(parsed);
     }
   };
 
@@ -83,7 +86,9 @@ export default function App() {
     
     // Avoid duplicates
     if (!localSongs.find(s => s.id === song.id)) {
-      localSongs = [song, ...localSongs];
+      const newSong = { ...song, createdAt: Date.now() };
+      localSongs.unshift(newSong);
+      localSongs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       localStorage.setItem('neonwaves-songs', JSON.stringify(localSongs));
       setSongs(localSongs);
     }
@@ -279,6 +284,41 @@ export default function App() {
     }
   };
 
+  const handleAddMultipleToPlaylist = async (playlistId: string, songIds: string[]) => {
+    const saved = localStorage.getItem('neonwaves-songs');
+    const arrayDaHome: Song[] = saved ? JSON.parse(saved) : [];
+    
+    const playlistKey = `neonwaves-playlist-${playlistId}`;
+    const savedPlaylist = localStorage.getItem(playlistKey);
+    let playlistSongs: Song[] = savedPlaylist ? JSON.parse(savedPlaylist) : [];
+    
+    let addedCount = 0;
+
+    for (const songId of songIds) {
+      const songToAdd = arrayDaHome.find(s => String(s.id) === String(songId));
+      if (songToAdd && !playlistSongs.find(s => String(s.id) === String(songId))) {
+        playlistSongs.push({ ...songToAdd });
+        addedCount++;
+      }
+    }
+
+    if (addedCount > 0) {
+      localStorage.setItem(playlistKey, JSON.stringify(playlistSongs));
+      if (activeView === `playlist:${playlistId}`) {
+        setDisplaySongs(playlistSongs);
+      }
+      
+      // Sync with backend in background
+      for (const songId of songIds) {
+        fetch(`${API_URL}/api/playlists/${playlistId}/songs`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ songId }),
+        }).catch(e => console.error(e));
+      }
+    }
+  };
+
   const handleDeleteSong = async (songId: string) => {
     try {
       // Delete from local storage
@@ -295,6 +335,32 @@ export default function App() {
           const cache = await caches.open('musicas-cache');
           await cache.delete(`${API_URL}/downloads/${songToDelete.filename}`);
           checkCachedSongs();
+        }
+      }
+
+      // If we are in a playlist, also remove from that playlist
+      if (activeView.startsWith('playlist:')) {
+        const playlistId = activeView.split(':')[1];
+        const playlistKey = `neonwaves-playlist-${playlistId}`;
+        const savedPlaylist = localStorage.getItem(playlistKey);
+        if (savedPlaylist) {
+          const playlistSongs: Song[] = JSON.parse(savedPlaylist);
+          const updatedPlaylist = playlistSongs.filter(s => s.id !== songId);
+          localStorage.setItem(playlistKey, JSON.stringify(updatedPlaylist));
+          setDisplaySongs(updatedPlaylist);
+        }
+      } else {
+        // Also remove from all playlists in localStorage just in case
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('neonwaves-playlist-')) {
+            const savedPlaylist = localStorage.getItem(key);
+            if (savedPlaylist) {
+              const playlistSongs: Song[] = JSON.parse(savedPlaylist);
+              const updatedPlaylist = playlistSongs.filter(s => s.id !== songId);
+              localStorage.setItem(key, JSON.stringify(updatedPlaylist));
+            }
+          }
         }
       }
 
@@ -435,6 +501,7 @@ export default function App() {
           onSortSongs={handleSortSongs}
           onReorderSongs={handleReorderSongs}
           onReorderPlaylistSongs={handleReorderPlaylistSongs}
+          onAddMultipleToPlaylist={handleAddMultipleToPlaylist}
           isConverting={isConverting}
           activeView={activeView}
           cachedSongIds={cachedSongIds}

@@ -36,12 +36,13 @@ interface MainContentProps {
   onSortSongs: () => void;
   onReorderSongs: (oldIndex: number, newIndex: number) => void;
   onReorderPlaylistSongs: (playlistId: string, oldIndex: number, newIndex: number) => void;
+  onAddMultipleToPlaylist: (playlistId: string, songIds: string[]) => Promise<void>;
   isConverting: boolean;
   activeView: string;
   cachedSongIds: string[];
 }
 
-export default function MainContent({ songs, allSongs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onEditPlaylist, onDeletePlaylist, onDeleteSong, onEditSong, onOpenPlaylist, onBack, onSortSongs, onReorderSongs, onReorderPlaylistSongs, isConverting, activeView, cachedSongIds }: MainContentProps) {
+export default function MainContent({ songs, allSongs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onEditPlaylist, onDeletePlaylist, onDeleteSong, onEditSong, onOpenPlaylist, onBack, onSortSongs, onReorderSongs, onReorderPlaylistSongs, onAddMultipleToPlaylist, isConverting, activeView, cachedSongIds }: MainContentProps) {
   const [url, setUrl] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'musics' | 'playlists' | 'artists' | 'genres'>('musics');
@@ -846,6 +847,26 @@ export default function MainContent({ songs, allSongs, playlists, onConvert, onP
                         </button>
                     </div>
                     
+                    <div className="p-3 border-b border-white/10 bg-[#121212] flex justify-between items-center">
+                        <span className="text-sm text-gray-400">
+                            {allSongs.filter(s => !songs.some(ps => ps.id === s.id)).length} músicas disponíveis
+                        </span>
+                        <button
+                            onClick={async () => {
+                                const availableSongs = allSongs.filter(s => !songs.some(ps => ps.id === s.id));
+                                if (availableSongs.length > 0) {
+                                    await onAddMultipleToPlaylist(currentPlaylistId, availableSongs.map(s => s.id));
+                                    alert('Sucesso! Músicas adicionadas à playlist.');
+                                    setShowAddSongToPlaylistModal(false);
+                                }
+                            }}
+                            disabled={allSongs.filter(s => !songs.some(ps => ps.id === s.id)).length === 0}
+                            className="text-sm bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Selecionar Todas
+                        </button>
+                    </div>
+
                     <div className="overflow-y-auto flex-1 p-2">
                         {allSongs.length === 0 ? (
                             <div className="p-6 text-center text-gray-500">
