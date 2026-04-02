@@ -29,7 +29,8 @@ interface MainContentProps {
   onCreatePlaylist: (name: string) => Promise<void>;
   onEditPlaylist: (id: string, name: string) => Promise<void>;
   onDeletePlaylist: (id: string) => Promise<void>;
-  onDeleteSong: (songId: string) => Promise<void>;
+  onDeleteFromHome: (songId: string) => Promise<void>;
+  onRemoveFromPlaylist: (songId: string, playlistId: string) => void;
   onEditSong: (songId: string, newTitle: string, newArtist: string) => Promise<void>;
   onOpenPlaylist: (playlistId: string) => void;
   onBack: () => void;
@@ -42,7 +43,7 @@ interface MainContentProps {
   cachedSongIds: string[];
 }
 
-export default function MainContent({ songs, allSongs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onEditPlaylist, onDeletePlaylist, onDeleteSong, onEditSong, onOpenPlaylist, onBack, onSortSongs, onReorderSongs, onReorderPlaylistSongs, onAddMultipleToPlaylist, isConverting, activeView, cachedSongIds }: MainContentProps) {
+export default function MainContent({ songs, allSongs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onEditPlaylist, onDeletePlaylist, onDeleteFromHome, onRemoveFromPlaylist, onEditSong, onOpenPlaylist, onBack, onSortSongs, onReorderSongs, onReorderPlaylistSongs, onAddMultipleToPlaylist, isConverting, activeView, cachedSongIds }: MainContentProps) {
   const [url, setUrl] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'musics' | 'playlists' | 'artists' | 'genres'>('musics');
@@ -375,12 +376,16 @@ export default function MainContent({ songs, allSongs, playlists, onConvert, onP
                                     <button 
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            if (confirm(`Tem certeza que deseja excluir "${song.title}"?`)) {
-                                                onDeleteSong(song.id);
+                                            if (isPlaylistView && currentPlaylistId) {
+                                                onRemoveFromPlaylist(song.id, currentPlaylistId);
+                                            } else {
+                                                if (confirm(`Tem certeza que deseja excluir "${song.title}"?`)) {
+                                                    onDeleteFromHome(song.id);
+                                                }
                                             }
                                         }}
                                         className="w-8 h-8 flex items-center justify-center bg-white/10 text-gray-300 hover:text-white rounded-full hover:bg-red-500/50 transition-colors"
-                                        title="Excluir"
+                                        title={isPlaylistView ? "Remover da Playlist" : "Excluir"}
                                     >
                                         <Trash2 size={14} />
                                     </button>

@@ -319,7 +319,23 @@ export default function App() {
     }
   };
 
-  const handleDeleteSong = async (songId: string) => {
+  const removeSongFromPlaylist = (songId: string, playlistId: string) => {
+    const playlistKey = `neonwaves-playlist-${playlistId}`;
+    const savedPlaylist = localStorage.getItem(playlistKey);
+    if (savedPlaylist) {
+      const playlistSongs: Song[] = JSON.parse(savedPlaylist);
+      const updatedPlaylist = playlistSongs.filter(s => s.id !== songId);
+      localStorage.setItem(playlistKey, JSON.stringify(updatedPlaylist));
+      
+      if (activeView === `playlist:${playlistId}`) {
+        setDisplaySongs(updatedPlaylist);
+      }
+    }
+    
+    // Optionally remove from backend playlist if endpoint exists, but local is enough for now
+  };
+
+  const deleteSongFromHome = async (songId: string) => {
     try {
       // Delete from local storage
       const saved = localStorage.getItem('neonwaves-songs');
@@ -338,27 +354,18 @@ export default function App() {
         }
       }
 
-      // If we are in a playlist, also remove from that playlist
-      if (activeView.startsWith('playlist:')) {
-        const playlistId = activeView.split(':')[1];
-        const playlistKey = `neonwaves-playlist-${playlistId}`;
-        const savedPlaylist = localStorage.getItem(playlistKey);
-        if (savedPlaylist) {
-          const playlistSongs: Song[] = JSON.parse(savedPlaylist);
-          const updatedPlaylist = playlistSongs.filter(s => s.id !== songId);
-          localStorage.setItem(playlistKey, JSON.stringify(updatedPlaylist));
-          setDisplaySongs(updatedPlaylist);
-        }
-      } else {
-        // Also remove from all playlists in localStorage just in case
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith('neonwaves-playlist-')) {
-            const savedPlaylist = localStorage.getItem(key);
-            if (savedPlaylist) {
-              const playlistSongs: Song[] = JSON.parse(savedPlaylist);
-              const updatedPlaylist = playlistSongs.filter(s => s.id !== songId);
-              localStorage.setItem(key, JSON.stringify(updatedPlaylist));
+      // Also remove from all playlists in localStorage
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('neonwaves-playlist-')) {
+          const savedPlaylist = localStorage.getItem(key);
+          if (savedPlaylist) {
+            const playlistSongs: Song[] = JSON.parse(savedPlaylist);
+            const updatedPlaylist = playlistSongs.filter(s => s.id !== songId);
+            localStorage.setItem(key, JSON.stringify(updatedPlaylist));
+            
+            if (activeView === `playlist:${key.replace('neonwaves-playlist-', '')}`) {
+              setDisplaySongs(updatedPlaylist);
             }
           }
         }
@@ -494,7 +501,8 @@ export default function App() {
           onCreatePlaylist={handleCreatePlaylist}
           onEditPlaylist={handleEditPlaylist}
           onDeletePlaylist={handleDeletePlaylist}
-          onDeleteSong={handleDeleteSong}
+          onDeleteFromHome={deleteSongFromHome}
+          onRemoveFromPlaylist={removeSongFromPlaylist}
           onEditSong={handleEditSong}
           onOpenPlaylist={handleOpenPlaylist}
           onBack={handleBackToLibrary}
