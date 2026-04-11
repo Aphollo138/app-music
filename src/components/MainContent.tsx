@@ -320,10 +320,10 @@ export default function MainContent({ songs, allSongs, playlists, onConvert, onP
                     {songs.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-20 text-gray-500">
                             <Music size={48} className="mb-4 opacity-20" />
-                            <p>Nenhum conteúdo</p>
+                            <p className="text-center px-4">Nenhuma música encontrada.</p>
                             {!isPlaylistView && (
-                                <button onClick={() => setShowImportModal(true)} className="mt-4 text-blue-500 text-sm">
-                                    Importar música
+                                <button onClick={() => setShowImportModal(true)} className="mt-4 text-blue-500 text-sm font-medium">
+                                    Comece convertendo um link acima!
                                 </button>
                             )}
                         </div>
@@ -420,15 +420,11 @@ export default function MainContent({ songs, allSongs, playlists, onConvert, onP
                         <span className="text-white font-medium">Adicionar novo</span>
                     </div>
                     
-                    <div className="flex items-center gap-4 p-2">
-                        <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-pink-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-red-900/20">
-                            <div className="text-2xl">❤️</div>
+                    {playlists.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-10 text-gray-500">
+                            <p>Crie sua primeira playlist!</p>
                         </div>
-                        <div>
-                            <span className="text-white font-medium block">Favoritos</span>
-                            <span className="text-xs text-gray-500">0 músicas</span>
-                        </div>
-                    </div>
+                    )}
 
                     {playlists.map(playlist => (
                         <div 

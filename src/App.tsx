@@ -76,14 +76,7 @@ export default function App() {
     if (saved) {
       setPlaylists(JSON.parse(saved));
     } else {
-      // Initialize predefined playlists if none exist
-      const defaultPlaylists = [
-        { id: 'favs', name: 'Favoritos' },
-        { id: 'recent', name: 'Adicionadas Recentemente' },
-        { id: 'gym', name: 'Treino' }
-      ];
-      setPlaylists(defaultPlaylists);
-      localStorage.setItem('neonwaves-playlists-meta', JSON.stringify(defaultPlaylists));
+      setPlaylists([]);
     }
 
     // Optionally sync with backend, but we rely on local storage for persistence
