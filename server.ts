@@ -294,11 +294,11 @@ app.get('/api/playlists', (req, res) => {
 });
 
 app.post('/api/playlists', (req, res) => {
-    const { name } = req.body;
+    const { name, id: clientProvidedId } = req.body;
     if (!name) {
         return res.status(400).json({ error: 'Name is required' });
     }
-    const id = uuidv4();
+    const id = clientProvidedId || uuidv4();
     try {
         const stmt = db.prepare('INSERT INTO playlists (id, name) VALUES (?, ?)');
         stmt.run(id, name);

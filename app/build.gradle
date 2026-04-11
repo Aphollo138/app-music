@@ -25,7 +25,7 @@ def twaManifest = [
     hostName: 'app-music-eight.vercel.app', // The domain being opened in the TWA.
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
     name: 'App music', // The application name.
-    launcherName: 'Music', // The name shown on the Android Launcher.
+    launcherName: 'App', // The name shown on the Android Launcher.
     themeColor: '#000000', // The color used for the status bar.
     themeColorDark: '#000000', // The color used for the dark status bar.
     navigationColor: '#000000', // The color used for the navigation bar.

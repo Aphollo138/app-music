@@ -71,12 +71,45 @@ export default function App() {
   }, [songs]);
 
   const fetchPlaylists = async () => {
+    // First, try to load from localStorage
+    const saved = localStorage.getItem('neonwaves-playlists-meta');
+    if (saved) {
+      setPlaylists(JSON.parse(saved));
+    } else {
+      // Initialize predefined playlists if none exist
+      const defaultPlaylists = [
+        { id: 'favs', name: 'Favoritos' },
+        { id: 'recent', name: 'Adicionadas Recentemente' },
+        { id: 'gym', name: 'Treino' }
+      ];
+      setPlaylists(defaultPlaylists);
+      localStorage.setItem('neonwaves-playlists-meta', JSON.stringify(defaultPlaylists));
+    }
+
+    // Optionally sync with backend, but we rely on local storage for persistence
     try {
       const res = await fetch(`${API_URL}/api/playlists`);
       const data = await res.json();
-      setPlaylists(data);
+      if (data && data.length > 0) {
+        // Merge backend playlists if they exist and aren't in local storage
+        setPlaylists(current => {
+          const merged = [...current];
+          let changed = false;
+          data.forEach((p: Playlist) => {
+            if (!merged.find(existing => existing.id === p.id)) {
+              merged.push(p);
+              changed = true;
+            }
+          });
+          if (changed) {
+            localStorage.setItem('neonwaves-playlists-meta', JSON.stringify(merged));
+            return merged;
+          }
+          return current;
+        });
+      }
     } catch (error) {
-      console.error('Failed to fetch playlists:', error);
+      console.error('Failed to fetch playlists from backend:', error);
     }
   };
 
@@ -187,42 +220,61 @@ export default function App() {
   };
 
   const handleCreatePlaylist = async (name: string) => {
+    const newId = Date.now().toString();
+    const newPlaylist = { id: newId, name };
+    
+    setPlaylists(prev => {
+      const updated = [newPlaylist, ...prev];
+      localStorage.setItem('neonwaves-playlists-meta', JSON.stringify(updated));
+      return updated;
+    });
+
     try {
-      const res = await fetch(`${API_URL}/api/playlists`, {
+      await fetch(`${API_URL}/api/playlists`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ id: newId, name }),
       });
-      if (res.ok) fetchPlaylists();
     } catch (error) {
       console.error(error);
     }
   };
 
   const handleEditPlaylist = async (id: string, name: string) => {
+    setPlaylists(prev => {
+      const updated = prev.map(p => p.id === id ? { ...p, name } : p);
+      localStorage.setItem('neonwaves-playlists-meta', JSON.stringify(updated));
+      return updated;
+    });
+
     try {
-      const res = await fetch(`${API_URL}/api/playlists/${id}`, {
+      await fetch(`${API_URL}/api/playlists/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       });
-      if (res.ok) fetchPlaylists();
     } catch (error) {
       console.error(error);
     }
   };
 
   const handleDeletePlaylist = async (id: string) => {
+    setPlaylists(prev => {
+      const updated = prev.filter(p => p.id !== id);
+      localStorage.setItem('neonwaves-playlists-meta', JSON.stringify(updated));
+      return updated;
+    });
+    
+    localStorage.removeItem(`neonwaves-playlist-${id}`);
+
+    if (activeView === `playlist:${id}`) {
+      setActiveView('home');
+    }
+
     try {
-      const res = await fetch(`${API_URL}/api/playlists/${id}`, {
+      await fetch(`${API_URL}/api/playlists/${id}`, {
         method: 'DELETE',
       });
-      if (res.ok) {
-        fetchPlaylists();
-        if (activeView === `playlist:${id}`) {
-          setActiveView('home');
-        }
-      }
     } catch (error) {
       console.error(error);
     }
