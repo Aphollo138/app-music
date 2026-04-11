@@ -71,38 +71,12 @@ export default function App() {
   }, [songs]);
 
   const fetchPlaylists = async () => {
-    // First, try to load from localStorage
+    // Load from localStorage only to ensure local-first and prevent deleted playlists from returning
     const saved = localStorage.getItem('neonwaves-playlists-meta');
     if (saved) {
       setPlaylists(JSON.parse(saved));
     } else {
       setPlaylists([]);
-    }
-
-    // Optionally sync with backend, but we rely on local storage for persistence
-    try {
-      const res = await fetch(`${API_URL}/api/playlists`);
-      const data = await res.json();
-      if (data && data.length > 0) {
-        // Merge backend playlists if they exist and aren't in local storage
-        setPlaylists(current => {
-          const merged = [...current];
-          let changed = false;
-          data.forEach((p: Playlist) => {
-            if (!merged.find(existing => existing.id === p.id)) {
-              merged.push(p);
-              changed = true;
-            }
-          });
-          if (changed) {
-            localStorage.setItem('neonwaves-playlists-meta', JSON.stringify(merged));
-            return merged;
-          }
-          return current;
-        });
-      }
-    } catch (error) {
-      console.error('Failed to fetch playlists from backend:', error);
     }
   };
 
@@ -558,6 +532,7 @@ export default function App() {
           isConverting={isConverting}
           activeView={activeView}
           cachedSongIds={cachedSongIds}
+          currentSong={currentSong}
         />
         
         {currentSong && (

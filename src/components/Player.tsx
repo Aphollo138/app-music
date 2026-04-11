@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ChevronDown, ChevronUp } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ChevronDown, ChevronUp, Repeat } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const API_URL = 'https://app-music-1.onrender.com';
@@ -25,6 +25,7 @@ export default function Player({ currentSong, isPlaying, onPlayPause, onNext, on
   const audioRef = useRef<HTMLAudioElement>(null);
   const [progress, setProgress] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isRepeatEnabled, setIsRepeatEnabled] = useState(false);
 
   useEffect(() => {
     const loadAudio = async () => {
@@ -92,7 +93,12 @@ export default function Player({ currentSong, isPlaying, onPlayPause, onNext, on
   };
 
   const handleEnded = () => {
-    onNext();
+    if (isRepeatEnabled && audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(e => console.error("Play error:", e));
+    } else {
+      onNext();
+    }
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -185,6 +191,12 @@ export default function Player({ currentSong, isPlaying, onPlayPause, onNext, on
               </button>
               <button onClick={onNext} className="text-white/70 hover:text-white transition-transform active:scale-90">
                 <SkipForward size={36} />
+              </button>
+              <button 
+                onClick={() => setIsRepeatEnabled(!isRepeatEnabled)} 
+                className={`transition-transform active:scale-90 ml-4 ${isRepeatEnabled ? 'text-blue-500' : 'text-white/70 hover:text-white'}`}
+              >
+                <Repeat size={28} />
               </button>
             </div>
           </motion.div>

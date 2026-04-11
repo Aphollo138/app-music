@@ -41,9 +41,10 @@ interface MainContentProps {
   isConverting: boolean;
   activeView: string;
   cachedSongIds: string[];
+  currentSong: Song | null;
 }
 
-export default function MainContent({ songs, allSongs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onEditPlaylist, onDeletePlaylist, onDeleteFromHome, onRemoveFromPlaylist, onEditSong, onOpenPlaylist, onBack, onSortSongs, onReorderSongs, onReorderPlaylistSongs, onAddMultipleToPlaylist, isConverting, activeView, cachedSongIds }: MainContentProps) {
+export default function MainContent({ songs, allSongs, playlists, onConvert, onPlay, onAddToPlaylist, onCreatePlaylist, onEditPlaylist, onDeletePlaylist, onDeleteFromHome, onRemoveFromPlaylist, onEditSong, onOpenPlaylist, onBack, onSortSongs, onReorderSongs, onReorderPlaylistSongs, onAddMultipleToPlaylist, isConverting, activeView, cachedSongIds, currentSong }: MainContentProps) {
   const [url, setUrl] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'musics' | 'playlists' | 'artists' | 'genres'>('musics');
@@ -68,6 +69,16 @@ export default function MainContent({ songs, allSongs, playlists, onConvert, onP
   const currentPlaylist = playlists.find(p => p.id === currentPlaylistId);
 
   const playlistContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Auto-scroll logic
+  useEffect(() => {
+    if (currentSong && playlistContainerRef.current) {
+      const activeElement = document.getElementById(`song-${currentSong.id}`);
+      if (activeElement) {
+        activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [currentSong, activeTab, activeView]);
 
   useEffect(() => {
     let sortableInstance: any = null;
@@ -331,7 +342,8 @@ export default function MainContent({ songs, allSongs, playlists, onConvert, onP
                         songs.map((song, index) => (
                             <div
                                 key={song.id}
-                                className="flex items-center gap-3 p-2 active:bg-white/5 rounded-xl transition-colors"
+                                id={`song-${song.id}`}
+                                className={`flex items-center gap-3 p-2 active:bg-white/5 rounded-xl transition-colors ${currentSong?.id === song.id ? 'bg-white/10' : ''}`}
                                 onClick={() => onPlay(song)}
                             >
                                 {isPlaylistView && (
